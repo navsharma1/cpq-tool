@@ -6,3 +6,4 @@ account_id = "34d894b7a693e5d10f6eb52820489854"  # Nav.sharma@codeium.com's Acco
 
 [vars]
 REDIRECT_URI = "https://cpq-tool.pages.dev/auth/callback"
+SF_CLIENT_ID = "3MVG9VTfpJmxg1yigsythfxwV6dx9si2zOkHulUKdSYVHWHDzWTbzR_aB0J8rvoUFG3BbnGG5mwIrKGHy9x_3"

@@ -7,17 +7,6 @@ const SF_TOKEN_URL = `${SF_LOGIN_URL}/services/oauth2/token`;
 // CORS headers helper
 function getCorsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  // Allow if it's a Cloudflare Pages domain, localhost, or your custom domain
-  if (origin.endsWith('.pages.dev') || 
-      origin.startsWith('http://localhost') || 
-      origin.includes('quoting-tool')) {
-    return {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400',
-    };
-  }
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -34,13 +23,30 @@ async function handleOptions(request) {
 
 // Get OAuth URL for Salesforce login
 function getOAuthUrl(env) {
+  console.log('Environment variables:', {
+    clientId: env.SF_CLIENT_ID,
+    redirectUri: env.REDIRECT_URI
+  });
+
+  if (!env.SF_CLIENT_ID) {
+    throw new Error('SF_CLIENT_ID is not configured');
+  }
+
+  if (!env.REDIRECT_URI) {
+    throw new Error('REDIRECT_URI is not configured');
+  }
+
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: env.SF_CLIENT_ID,
     redirect_uri: env.REDIRECT_URI,
+    scope: 'api refresh_token',
     state: crypto.randomUUID(),
   });
-  return `${SF_AUTH_URL}?${params.toString()}`;
+
+  const url = `${SF_AUTH_URL}?${params.toString()}`;
+  console.log('Generated OAuth URL:', url);
+  return url;
 }
 
 // Exchange code for access token
@@ -97,17 +103,36 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    console.log('Request path:', path);
+    console.log('Request headers:', Object.fromEntries(request.headers));
+
     // Get OAuth URL
     if (path === '/auth/url') {
-      return new Response(
-        JSON.stringify({ url: getOAuthUrl(env) }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getCorsHeaders(request),
-          },
-        }
-      );
+      try {
+        const authUrl = getOAuthUrl(env);
+        console.log('Returning auth URL:', authUrl);
+        return new Response(
+          JSON.stringify({ url: authUrl }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
+      } catch (error) {
+        console.error('Error generating auth URL:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          {
+            status: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
+      }
     }
 
     // Handle OAuth callback
