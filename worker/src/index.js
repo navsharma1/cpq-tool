@@ -4,34 +4,12 @@ const SF_LOGIN_URL = 'https://login.salesforce.com';
 const SF_AUTH_URL = `${SF_LOGIN_URL}/services/oauth2/authorize`;
 const SF_TOKEN_URL = `${SF_LOGIN_URL}/services/oauth2/token`;
 
-// CORS headers helper
-function getCorsHeaders(request) {
-  const origin = request.headers.get('Origin');
-  const allowedOrigins = [
-    'http://localhost:8787',
-    'http://127.0.0.1:8787',
-    'https://cpq-tool.pages.dev',
-    'https://cpq-api.nav-sharma.workers.dev'
-  ];
-
-  // Allow specific origins
-  const headers = {
-    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, SF-Instance-URL',
-    'Access-Control-Max-Age': '86400',
-  };
-
-  console.log('CORS headers:', headers);
-  return headers;
-}
-
-// Handle CORS preflight
-async function handleOptions(request) {
-  return new Response(null, {
-    status: 204,
-    headers: getCorsHeaders(request),
-  });
+// Base64URL encode
+function base64URLEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 // Generate random string for PKCE
@@ -39,43 +17,21 @@ function generateRandomString(length) {
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  const result = Array.from(array).map(x => charset[x % charset.length]).join('');
-  console.log('Generated random string:', result);
-  return result;
-}
-
-// Base64URL encode
-function base64URLEncode(buffer) {
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-  console.log('Base64URL encoded:', base64);
-  return base64;
+  return Array.from(array).map(x => charset[x % charset.length]).join('');
 }
 
 // Generate code verifier and challenge
 async function generatePKCE() {
   const verifier = generateRandomString(128);
-  console.log('Generated verifier:', verifier);
-
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
-  console.log('Encoded verifier:', new Uint8Array(data));
-
   const digest = await crypto.subtle.digest('SHA-256', data);
-  console.log('Generated digest:', new Uint8Array(digest));
-
   const challenge = base64URLEncode(digest);
-  console.log('Generated challenge:', challenge);
-
   return { verifier, challenge };
 }
 
 // Get OAuth URL for Salesforce login
 async function getOAuthUrl(env) {
-  console.log('Generating OAuth URL with PKCE');
-
   if (!env.SF_CLIENT_ID) {
     throw new Error('SF_CLIENT_ID is not configured');
   }
@@ -85,7 +41,6 @@ async function getOAuthUrl(env) {
   }
 
   const { verifier, challenge } = await generatePKCE();
-  console.log('Generated PKCE values:', { verifier, challenge });
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -97,19 +52,32 @@ async function getOAuthUrl(env) {
     code_challenge_method: 'S256'
   });
 
-  const url = `${SF_AUTH_URL}?${params.toString()}`;
-  console.log('Generated OAuth URL:', url);
-
+  const url = `https://login.salesforce.com/services/oauth2/authorize?${params.toString()}`;
+  
   return {
     url,
     codeVerifier: verifier
   };
 }
 
+// Get CORS headers
+function getCorsHeaders(request) {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, SF-Instance-URL',
+  };
+}
+
+// Handle CORS preflight
+function handleOptions(request) {
+  return new Response(null, {
+    headers: getCorsHeaders(request),
+  });
+}
+
 // Exchange code for access token
 async function getAccessToken(code, env, codeVerifier) {
-  console.log('Exchanging code for token with verifier:', codeVerifier);
-
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: env.SF_CLIENT_ID,
@@ -129,7 +97,6 @@ async function getAccessToken(code, env, codeVerifier) {
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('Token exchange failed:', error);
     throw new Error(error.error_description || 'Failed to exchange code for token');
   }
 
@@ -161,12 +128,6 @@ async function sfRequest(instanceUrl, accessToken, path, method = 'GET', body = 
 
 // Handle API requests
 async function handleRequest(request, env) {
-  console.log('Received request:', {
-    method: request.method,
-    url: request.url,
-    headers: Object.fromEntries(request.headers),
-  });
-
   // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return handleOptions(request);
@@ -176,34 +137,21 @@ async function handleRequest(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    console.log('Request path:', path);
-
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
         const { url, codeVerifier } = await getOAuthUrl(env);
-        console.log('Generated auth URL and verifier:', { url, codeVerifier });
         
-        const responseData = { url, codeVerifier };
-        console.log('Response data:', responseData);
-        
-        const headers = {
-          'Content-Type': 'application/json',
-          ...getCorsHeaders(request),
-        };
-        console.log('Response headers:', headers);
-        
-        const response = new Response(JSON.stringify(responseData), { headers });
-        console.log('Response object:', response);
-        
-        // Log the response body for debugging
-        const clonedResponse = response.clone();
-        const responseBody = await clonedResponse.json();
-        console.log('Response body:', responseBody);
-        
-        return response;
+        return new Response(
+          JSON.stringify({ url, codeVerifier }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
       } catch (error) {
-        console.error('Error generating auth URL:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           {
@@ -243,8 +191,6 @@ async function handleRequest(request, env) {
         throw new Error('No code verifier provided');
       }
 
-      console.log('Processing callback with code and verifier:', { code, codeVerifier });
-
       try {
         const tokenResponse = await getAccessToken(code, env, codeVerifier);
         return new Response(JSON.stringify(tokenResponse), {
@@ -254,7 +200,6 @@ async function handleRequest(request, env) {
           },
         });
       } catch (error) {
-        console.error('Token exchange failed:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           {
@@ -348,7 +293,6 @@ async function handleRequest(request, env) {
       headers: getCorsHeaders(request),
     });
   } catch (error) {
-    console.error('Request failed:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

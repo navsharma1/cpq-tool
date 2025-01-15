@@ -52,23 +52,28 @@ export class Auth {
             console.log('Starting login process...');
             
             // Get the OAuth URL and code verifier
-            const { url, codeVerifier } = await this.api.getAuthUrl();
-            console.log('Got auth URL and code verifier:', {
-                url: url ? 'present' : 'not present',
-                codeVerifier: codeVerifier ? 'present' : 'not present'
-            });
+            const response = await this.api.getAuthUrl();
+            console.log('Got auth URL response:', response);
             
-            if (!url || !codeVerifier) {
-                throw new Error('Invalid response from /auth/url');
+            if (!response) {
+                throw new Error('No response from server');
+            }
+            
+            if (!response.url) {
+                throw new Error('No URL in response: ' + JSON.stringify(response));
+            }
+            
+            if (!response.codeVerifier) {
+                throw new Error('No code verifier in response: ' + JSON.stringify(response));
             }
 
             // Store the code verifier
             console.log('Storing code verifier in session storage');
-            sessionStorage.setItem('code_verifier', codeVerifier);
+            sessionStorage.setItem('code_verifier', response.codeVerifier);
 
             // Redirect to Salesforce
             console.log('Redirecting to Salesforce login URL');
-            window.location.href = url;
+            window.location.href = response.url;
         } catch (error) {
             console.error('Login failed:', error);
             alert('Login failed: ' + error.message);
