@@ -1,0 +1,17 @@
+{
+  "name": "salesforce-quoting-tool",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev:worker & npm run dev:frontend",
+    "dev:worker": "cd worker && wrangler dev",
+    "dev:frontend": "cd src && npx http-server ../public --cors -o",
+    "deploy": "npm run deploy:worker && npm run deploy:pages",
+    "deploy:worker": "cd worker && wrangler deploy",
+    "deploy:pages": "npx wrangler pages deploy public --project-name quoting-tool"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0",
+    "http-server": "^14.1.1"
+  }
+}

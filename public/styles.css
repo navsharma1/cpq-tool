@@ -1,0 +1,53 @@
+/* General Styles */
+body {
+    background-color: #f8f9fa;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* Authentication Section */
+#auth-section {
+    margin-top: 100px;
+}
+
+/* Account Search */
+#account-results {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.account-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.account-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Quote Builder */
+#quote-builder {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* Products Table */
+.table {
+    margin-bottom: 0;
+}
+
+.quantity-input {
+    width: 80px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    .table-responsive {
+        margin: 0 -15px;
+    }
+}

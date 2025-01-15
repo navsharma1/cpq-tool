@@ -1,0 +1,8 @@
+name = "quoting-api"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# This will be updated after Pages deployment
+REDIRECT_URI = "http://localhost:8080/auth/callback"
