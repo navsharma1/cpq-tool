@@ -10,17 +10,33 @@
         const code = urlParams.get('code');
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
+        const state = urlParams.get('state');
+
+        // Get code verifier from session storage
+        const codeVerifier = sessionStorage.getItem('code_verifier');
+        console.log('Code verifier from session storage:', codeVerifier);
 
         if (error) {
+            console.error('Auth error:', error, errorDescription);
             // Store error in sessionStorage and redirect
             sessionStorage.setItem('auth_error', error);
             sessionStorage.setItem('auth_error_description', errorDescription);
             window.location.href = '/';
         } else if (code) {
-            // Store code in sessionStorage and redirect
+            if (!codeVerifier) {
+                console.error('No code verifier found in session storage');
+                sessionStorage.setItem('auth_error', 'missing_verifier');
+                sessionStorage.setItem('auth_error_description', 'No code verifier found');
+                window.location.href = '/';
+                return;
+            }
+
+            console.log('Received code:', code);
+            // Store code and verifier in sessionStorage
             sessionStorage.setItem('auth_code', code);
             window.location.href = '/';
         } else {
+            console.error('No code or error received');
             // No code or error, just redirect
             window.location.href = '/';
         }

@@ -10,8 +10,13 @@ export class Auth {
         loginButton.addEventListener('click', async () => {
             try {
                 const response = await this.api.getAuthUrl();
+                console.log('Got auth URL response:', response);
+                if (!response.codeVerifier) {
+                    throw new Error('No code verifier received from server');
+                }
                 // Store code verifier in session storage
                 sessionStorage.setItem('code_verifier', response.codeVerifier);
+                console.log('Stored code verifier:', response.codeVerifier);
                 window.location.href = response.url;
             } catch (error) {
                 console.error('Failed to get auth URL:', error);
@@ -41,13 +46,19 @@ export class Auth {
             try {
                 // Get code verifier from session storage
                 const codeVerifier = sessionStorage.getItem('code_verifier');
+                console.log('Retrieved code verifier:', codeVerifier);
+                
                 if (!codeVerifier) {
                     throw new Error('No code verifier found');
                 }
                 
+                console.log('Calling handleCallback with code and verifier:', { code, codeVerifier });
                 await this.api.handleCallback(code, codeVerifier);
+                
                 // Remove code verifier from storage
                 sessionStorage.removeItem('code_verifier');
+                console.log('Authentication successful');
+                
                 // Show the app
                 this.showApp();
             } catch (error) {
