@@ -1,4 +1,4 @@
-class Auth {
+export class Auth {
     constructor(api) {
         this.api = api;
         this.setupLoginButton();

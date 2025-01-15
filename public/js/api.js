@@ -1,4 +1,4 @@
-class API {
+export class API {
     constructor(workerUrl) {
         this.workerUrl = workerUrl;
         this.accessToken = localStorage.getItem('sf_access_token');
