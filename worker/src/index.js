@@ -159,7 +159,7 @@ async function handleRequest(request, env) {
       try {
         const { url, codeVerifier } = await getOAuthUrl(env);
         console.log('Returning auth URL response:', { url, codeVerifier });
-        return new Response(
+        const response = new Response(
           JSON.stringify({ url, codeVerifier }),
           {
             headers: {
@@ -168,9 +168,11 @@ async function handleRequest(request, env) {
             },
           }
         );
+        console.log('Response:', await response.clone().json());
+        return response;
       } catch (error) {
         console.error('Error generating auth URL:', error);
-        return new Response(
+        const response = new Response(
           JSON.stringify({ error: error.message }),
           {
             status: 500,
@@ -180,13 +182,15 @@ async function handleRequest(request, env) {
             },
           }
         );
+        console.log('Response:', await response.clone().json());
+        return response;
       }
     }
 
     // Handle OAuth callback
     if (path === '/auth/callback') {
       if (request.method !== 'POST') {
-        return new Response(
+        const response = new Response(
           JSON.stringify({ error: 'Method not allowed' }),
           {
             status: 405,
@@ -196,6 +200,8 @@ async function handleRequest(request, env) {
             },
           }
         );
+        console.log('Response:', await response.clone().json());
+        return response;
       }
 
       const body = await request.json();
@@ -213,7 +219,7 @@ async function handleRequest(request, env) {
 
       try {
         const tokenResponse = await getAccessToken(code, env, codeVerifier);
-        return new Response(
+        const response = new Response(
           JSON.stringify(tokenResponse),
           {
             headers: {
@@ -222,9 +228,11 @@ async function handleRequest(request, env) {
             },
           }
         );
+        console.log('Response:', await response.clone().json());
+        return response;
       } catch (error) {
         console.error('Token exchange failed:', error);
-        return new Response(
+        const response = new Response(
           JSON.stringify({ error: error.message }),
           {
             status: 400,
@@ -234,25 +242,31 @@ async function handleRequest(request, env) {
             },
           }
         );
+        console.log('Response:', await response.clone().json());
+        return response;
       }
     }
 
     // All other endpoints require authentication
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response('Unauthorized', { 
+      const response = new Response('Unauthorized', { 
         status: 401,
         headers: getCorsHeaders(request),
       });
+      console.log('Response:', await response.clone().text());
+      return response;
     }
 
     const accessToken = authHeader.split(' ')[1];
     const instanceUrl = request.headers.get('SF-Instance-URL');
     if (!instanceUrl) {
-      return new Response('Instance URL required', {
+      const response = new Response('Instance URL required', {
         status: 400,
         headers: getCorsHeaders(request),
       });
+      console.log('Response:', await response.clone().text());
+      return response;
     }
 
     // Search accounts
@@ -265,12 +279,14 @@ async function handleRequest(request, env) {
         `/search?q=${encodeURIComponent(sosl)}`
       );
       
-      return new Response(JSON.stringify(results), {
+      const response = new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
+      console.log('Response:', await response.clone().json());
+      return response;
     }
 
     // Get pricebooks
@@ -281,12 +297,14 @@ async function handleRequest(request, env) {
         '/query?q=' + encodeURIComponent('SELECT Id, Name FROM Pricebook2')
       );
       
-      return new Response(JSON.stringify(results), {
+      const response = new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
+      console.log('Response:', await response.clone().json());
+      return response;
     }
 
     // Get pricebook entries
@@ -303,23 +321,27 @@ async function handleRequest(request, env) {
         '/query?q=' + encodeURIComponent(soql)
       );
       
-      return new Response(JSON.stringify(results), {
+      const response = new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
+      console.log('Response:', await response.clone().json());
+      return response;
     }
 
     // Handle 404
-    return new Response('Not Found', {
+    const response = new Response('Not Found', {
       status: 404,
       headers: getCorsHeaders(request),
     });
+    console.log('Response:', await response.clone().text());
+    return response;
 
   } catch (error) {
     console.error('Request failed:', error);
-    return new Response(
+    const response = new Response(
       JSON.stringify({ error: error.message }),
       {
         status: 500,
@@ -329,6 +351,8 @@ async function handleRequest(request, env) {
         },
       }
     );
+    console.log('Response:', await response.clone().json());
+    return response;
   }
 }
 
