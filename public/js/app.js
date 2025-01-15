@@ -1,7 +1,7 @@
 class App {
     constructor() {
         // Initialize API with Worker URL
-        this.api = new API('https://quoting-api.nav-sharma.workers.dev');
+        this.api = new API('https://cpq-api.nav-sharma.workers.dev');
         // Initialize Auth
         this.auth = new Auth(this.api);
         

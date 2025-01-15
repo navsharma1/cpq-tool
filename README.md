@@ -1,11 +1,11 @@
-# Salesforce Quoting Tool
+# Salesforce CPQ Tool
 
-A modern quoting tool that integrates with Salesforce to create and manage quotes.
+A modern CPQ (Configure, Price, Quote) tool that integrates with Salesforce to create and manage quotes.
 
 ## Project Structure
 
 ```
-quoting-tool/
+cpq-tool/
 ├── public/          # Static frontend files
 ├── src/            # Source files
 └── worker/         # Cloudflare Worker backend

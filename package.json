@@ -1,5 +1,5 @@
 {
-  "name": "salesforce-quoting-tool",
+  "name": "salesforce-cpq-tool",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -8,7 +8,7 @@
     "dev:frontend": "cd src && npx http-server ../public --cors -o",
     "deploy": "npm run deploy:worker && npm run deploy:pages",
     "deploy:worker": "cd worker && wrangler deploy",
-    "deploy:pages": "npx wrangler pages deploy public --project-name quoting-tool"
+    "deploy:pages": "npx wrangler pages deploy public --project-name cpq-tool"
   },
   "devDependencies": {
     "wrangler": "^3.0.0",
