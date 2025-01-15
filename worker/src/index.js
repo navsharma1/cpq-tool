@@ -6,11 +6,12 @@ const SF_TOKEN_URL = `${SF_LOGIN_URL}/services/oauth2/token`;
 
 // CORS headers helper
 function getCorsHeaders(request) {
-  const origin = request.headers.get('Origin') || '';
+  const origin = request.headers.get('Origin') || '*';
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, SF-Instance-URL',
+    'Access-Control-Allow-Credentials': 'true',
   };
 }
 
