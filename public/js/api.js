@@ -6,6 +6,9 @@ export class API {
     }
 
     async request(endpoint, options = {}) {
+        const url = `${this.workerUrl}${endpoint}`;
+        console.log('Making request to:', url, options);
+
         if (this.accessToken) {
             options.headers = {
                 ...options.headers,
@@ -14,19 +17,27 @@ export class API {
             };
         }
 
-        const response = await fetch(`${this.workerUrl}${endpoint}`, options);
-        
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Clear invalid tokens
-                this.clearAuth();
-                throw new Error('Authentication required');
+        try {
+            const response = await fetch(url, options);
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Clear invalid tokens
+                    this.clearAuth();
+                    throw new Error('Authentication required');
+                }
+                const error = await response.json();
+                throw new Error(error.error || `API request failed: ${response.statusText}`);
             }
-            const error = await response.json();
-            throw new Error(error.error || `API request failed: ${response.statusText}`);
-        }
 
-        return response.json();
+            const data = await response.json();
+            console.log('Response data:', data);
+            return data;
+        } catch (error) {
+            console.error('Request failed:', error);
+            throw error;
+        }
     }
 
     setAuth(accessToken, instanceUrl) {
@@ -48,32 +59,42 @@ export class API {
     }
 
     async getAuthUrl() {
-        const response = await this.request('/auth/url');
-        return response;
+        console.log('Getting auth URL...');
+        const data = await this.request('/auth/url');
+        console.log('Got auth URL response:', data);
+        return data;
     }
 
     async handleCallback(code, codeVerifier) {
-        const response = await this.request('/auth/callback', {
+        console.log('Handling callback with code:', code);
+        console.log('Code verifier:', codeVerifier);
+        
+        const data = await this.request('/auth/callback', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ code, codeVerifier })
+            body: JSON.stringify({ code, codeVerifier }),
         });
         
-        this.setAuth(response.access_token, response.instance_url);
-        return response;
+        console.log('Callback response:', data);
+        
+        if (data.access_token && data.instance_url) {
+            this.setAuth(data.access_token, data.instance_url);
+        } else {
+            throw new Error('Invalid token response');
+        }
     }
 
-    async searchAccounts(term) {
-        return this.request(`/api/accounts/search?term=${encodeURIComponent(term)}`);
+    async searchAccounts(query) {
+        return this.request(`/search?q=${encodeURIComponent(query)}`);
     }
 
-    async getPriceBooks() {
-        return this.request('/api/pricebooks');
+    async getPricebooks() {
+        return this.request('/pricebooks');
     }
 
-    async getPriceBookEntries(priceBookId) {
-        return this.request(`/api/pricebookentries?pricebookId=${encodeURIComponent(priceBookId)}`);
+    async getPricebookEntries(pricebookId) {
+        return this.request(`/pricebook-entries/${pricebookId}`);
     }
 }

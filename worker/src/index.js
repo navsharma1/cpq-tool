@@ -6,18 +6,30 @@ const SF_TOKEN_URL = `${SF_LOGIN_URL}/services/oauth2/token`;
 
 // CORS headers helper
 function getCorsHeaders(request) {
-  const origin = request.headers.get('Origin') || '*';
-  return {
-    'Access-Control-Allow-Origin': origin,
+  const origin = request.headers.get('Origin');
+  const allowedOrigins = [
+    'http://localhost:8787',
+    'http://127.0.0.1:8787',
+    'https://cpq-tool.pages.dev',
+    'https://cpq-api.nav-sharma.workers.dev'
+  ];
+
+  // Allow specific origins
+  const headers = {
+    'Access-Control-Allow-Origin': allowedOrigins.includes(origin) ? origin : '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, SF-Instance-URL',
-    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
   };
+
+  console.log('CORS headers:', headers);
+  return headers;
 }
 
 // Handle CORS preflight
 async function handleOptions(request) {
   return new Response(null, {
+    status: 204,
     headers: getCorsHeaders(request),
   });
 }
@@ -147,32 +159,42 @@ async function sfRequest(instanceUrl, accessToken, path, method = 'GET', body = 
 
 // Handle API requests
 async function handleRequest(request, env) {
+  console.log('Received request:', {
+    method: request.method,
+    url: request.url,
+    headers: Object.fromEntries(request.headers),
+  });
+
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return handleOptions(request);
+  }
+
   try {
     const url = new URL(request.url);
     const path = url.pathname;
 
     console.log('Request path:', path);
-    console.log('Request headers:', Object.fromEntries(request.headers));
 
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
         const { url, codeVerifier } = await getOAuthUrl(env);
-        console.log('Returning auth URL response:', { url, codeVerifier });
-        const response = new Response(
-          JSON.stringify({ url, codeVerifier }),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...getCorsHeaders(request),
-            },
-          }
-        );
-        console.log('Response:', await response.clone().json());
-        return response;
+        console.log('Generated auth URL and verifier:', { url, codeVerifier });
+        
+        const responseData = { url, codeVerifier };
+        console.log('Response data:', responseData);
+        
+        const headers = {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request),
+        };
+        console.log('Response headers:', headers);
+        
+        return new Response(JSON.stringify(responseData), { headers });
       } catch (error) {
         console.error('Error generating auth URL:', error);
-        const response = new Response(
+        return new Response(
           JSON.stringify({ error: error.message }),
           {
             status: 500,
@@ -182,15 +204,13 @@ async function handleRequest(request, env) {
             },
           }
         );
-        console.log('Response:', await response.clone().json());
-        return response;
       }
     }
 
     // Handle OAuth callback
     if (path === '/auth/callback') {
       if (request.method !== 'POST') {
-        const response = new Response(
+        return new Response(
           JSON.stringify({ error: 'Method not allowed' }),
           {
             status: 405,
@@ -200,8 +220,6 @@ async function handleRequest(request, env) {
             },
           }
         );
-        console.log('Response:', await response.clone().json());
-        return response;
       }
 
       const body = await request.json();
@@ -219,20 +237,15 @@ async function handleRequest(request, env) {
 
       try {
         const tokenResponse = await getAccessToken(code, env, codeVerifier);
-        const response = new Response(
-          JSON.stringify(tokenResponse),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...getCorsHeaders(request),
-            },
-          }
-        );
-        console.log('Response:', await response.clone().json());
-        return response;
+        return new Response(JSON.stringify(tokenResponse), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request),
+          },
+        });
       } catch (error) {
         console.error('Token exchange failed:', error);
-        const response = new Response(
+        return new Response(
           JSON.stringify({ error: error.message }),
           {
             status: 400,
@@ -242,31 +255,25 @@ async function handleRequest(request, env) {
             },
           }
         );
-        console.log('Response:', await response.clone().json());
-        return response;
       }
     }
 
     // All other endpoints require authentication
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      const response = new Response('Unauthorized', { 
+      return new Response('Unauthorized', { 
         status: 401,
         headers: getCorsHeaders(request),
       });
-      console.log('Response:', await response.clone().text());
-      return response;
     }
 
     const accessToken = authHeader.split(' ')[1];
     const instanceUrl = request.headers.get('SF-Instance-URL');
     if (!instanceUrl) {
-      const response = new Response('Instance URL required', {
+      return new Response('Instance URL required', {
         status: 400,
         headers: getCorsHeaders(request),
       });
-      console.log('Response:', await response.clone().text());
-      return response;
     }
 
     // Search accounts
@@ -279,14 +286,12 @@ async function handleRequest(request, env) {
         `/search?q=${encodeURIComponent(sosl)}`
       );
       
-      const response = new Response(JSON.stringify(results), {
+      return new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
-      console.log('Response:', await response.clone().json());
-      return response;
     }
 
     // Get pricebooks
@@ -297,14 +302,12 @@ async function handleRequest(request, env) {
         '/query?q=' + encodeURIComponent('SELECT Id, Name FROM Pricebook2')
       );
       
-      const response = new Response(JSON.stringify(results), {
+      return new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
-      console.log('Response:', await response.clone().json());
-      return response;
     }
 
     // Get pricebook entries
@@ -321,27 +324,22 @@ async function handleRequest(request, env) {
         '/query?q=' + encodeURIComponent(soql)
       );
       
-      const response = new Response(JSON.stringify(results), {
+      return new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request),
         },
       });
-      console.log('Response:', await response.clone().json());
-      return response;
     }
 
     // Handle 404
-    const response = new Response('Not Found', {
+    return new Response('Not Found', {
       status: 404,
       headers: getCorsHeaders(request),
     });
-    console.log('Response:', await response.clone().text());
-    return response;
-
   } catch (error) {
     console.error('Request failed:', error);
-    const response = new Response(
+    return new Response(
       JSON.stringify({ error: error.message }),
       {
         status: 500,
@@ -351,8 +349,6 @@ async function handleRequest(request, env) {
         },
       }
     );
-    console.log('Response:', await response.clone().json());
-    return response;
   }
 }
 
