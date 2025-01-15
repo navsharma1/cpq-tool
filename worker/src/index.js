@@ -32,6 +32,7 @@ async function generatePKCE() {
 
 // Get OAuth URL for Salesforce login
 async function getOAuthUrl(env) {
+  // Validate environment variables
   if (!env.SF_CLIENT_ID) {
     throw new Error('SF_CLIENT_ID is not configured');
   }
@@ -40,8 +41,10 @@ async function getOAuthUrl(env) {
     throw new Error('REDIRECT_URI is not configured');
   }
 
+  // Generate PKCE values
   const { verifier, challenge } = await generatePKCE();
 
+  // Build OAuth URL
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: env.SF_CLIENT_ID,
@@ -52,8 +55,9 @@ async function getOAuthUrl(env) {
     code_challenge_method: 'S256'
   });
 
-  const url = `https://login.salesforce.com/services/oauth2/authorize?${params.toString()}`;
-  
+  const url = `${SF_AUTH_URL}?${params.toString()}`;
+
+  // Return both URL and code verifier
   return {
     url,
     codeVerifier: verifier
@@ -140,26 +144,23 @@ async function handleRequest(request, env) {
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
-        const { url, codeVerifier } = await getOAuthUrl(env);
-        
-        console.log('Generated auth URL response:', {
-          url,
-          codeVerifier
+        // Generate OAuth URL and code verifier
+        const authData = await getOAuthUrl(env);
+        console.log('Generated auth data:', authData);
+
+        // Create response
+        const responseBody = JSON.stringify(authData);
+        console.log('Response body:', responseBody);
+
+        // Return response with both URL and code verifier
+        return new Response(responseBody, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request),
+          },
         });
-        
-        const response = new Response(
-          JSON.stringify({ url, codeVerifier }),
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              ...getCorsHeaders(request),
-            },
-          }
-        );
-        
-        console.log('Response headers:', Object.fromEntries(response.headers));
-        return response;
       } catch (error) {
+        console.error('Error generating auth URL:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           {
@@ -307,6 +308,7 @@ async function handleRequest(request, env) {
       headers: getCorsHeaders(request),
     });
   } catch (error) {
+    console.error('Request failed:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
