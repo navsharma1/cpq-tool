@@ -27,25 +27,36 @@ function generateRandomString(length) {
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
   const array = new Uint8Array(length);
   crypto.getRandomValues(array);
-  return Array.from(array).map(x => charset[x % charset.length]).join('');
+  const result = Array.from(array).map(x => charset[x % charset.length]).join('');
+  console.log('Generated random string:', result);
+  return result;
 }
 
 // Base64URL encode
 function base64URLEncode(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
+  console.log('Base64URL encoded:', base64);
+  return base64;
 }
 
 // Generate code verifier and challenge
 async function generatePKCE() {
   const verifier = generateRandomString(128);
+  console.log('Generated verifier:', verifier);
+
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
+  console.log('Encoded verifier:', data);
+
   const digest = await crypto.subtle.digest('SHA-256', data);
+  console.log('Generated digest:', digest);
+
   const challenge = base64URLEncode(digest);
-  console.log('Generated PKCE:', { verifier, challenge });
+  console.log('Generated challenge:', challenge);
+
   return { verifier, challenge };
 }
 
@@ -62,7 +73,7 @@ async function getOAuthUrl(env) {
   }
 
   const { verifier, challenge } = await generatePKCE();
-  console.log('Generated PKCE:', { verifier, challenge });
+  console.log('PKCE values:', { verifier, challenge });
 
   const params = new URLSearchParams({
     response_type: 'code',
