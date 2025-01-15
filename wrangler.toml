@@ -1,0 +1,6 @@
+name = "cpq-tool"
+account_id = "34d894b7a693e5d10f6eb52820489854"
+compatibility_date = "2024-01-15"
+
+[pages]
+pages_build_output_dir = "public"

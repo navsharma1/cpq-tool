@@ -2,7 +2,7 @@ name = "cpq-api"
 main = "src/index.js"
 compatibility_date = "2024-01-15"
 compatibility_flags = ["nodejs_compat"]
+account_id = "34d894b7a693e5d10f6eb52820489854"  # Nav.sharma@codeium.com's Account
 
 [vars]
-# This will be updated after Pages deployment
-REDIRECT_URI = "http://localhost:8080/auth/callback"
+REDIRECT_URI = "https://cpq-tool.pages.dev/auth/callback"
