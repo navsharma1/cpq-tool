@@ -142,7 +142,12 @@ async function handleRequest(request, env) {
       try {
         const { url, codeVerifier } = await getOAuthUrl(env);
         
-        return new Response(
+        console.log('Generated auth URL response:', {
+          url,
+          codeVerifier
+        });
+        
+        const response = new Response(
           JSON.stringify({ url, codeVerifier }),
           {
             headers: {
@@ -151,6 +156,9 @@ async function handleRequest(request, env) {
             },
           }
         );
+        
+        console.log('Response headers:', Object.fromEntries(response.headers));
+        return response;
       } catch (error) {
         return new Response(
           JSON.stringify({ error: error.message }),
@@ -241,6 +249,8 @@ async function handleRequest(request, env) {
         `/search?q=${encodeURIComponent(sosl)}`
       );
       
+      console.log('Search accounts response:', results);
+      
       return new Response(JSON.stringify(results), {
         headers: {
           'Content-Type': 'application/json',
@@ -256,6 +266,8 @@ async function handleRequest(request, env) {
         accessToken,
         '/query?q=' + encodeURIComponent('SELECT Id, Name FROM Pricebook2')
       );
+      
+      console.log('Get pricebooks response:', results);
       
       return new Response(JSON.stringify(results), {
         headers: {
@@ -278,6 +290,8 @@ async function handleRequest(request, env) {
         accessToken,
         '/query?q=' + encodeURIComponent(soql)
       );
+      
+      console.log('Get pricebook entries response:', results);
       
       return new Response(JSON.stringify(results), {
         headers: {

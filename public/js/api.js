@@ -17,45 +17,36 @@ export class API {
             headers: options.headers || {}
         });
 
-        if (this.accessToken) {
-            options.headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${this.accessToken}`,
-                'SF-Instance-URL': this.instanceUrl
-            };
-        }
-
         try {
-            console.log('Sending request with options:', {
+            const response = await fetch(url, {
                 ...options,
-                headers: options.headers || {}
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers,
+                }
             });
-            
-            const response = await fetch(url, options);
             console.log('Response status:', response.status);
             
             const contentType = response.headers.get('content-type');
             console.log('Response content type:', contentType);
             
-            if (!response.ok) {
-                if (response.status === 401) {
-                    // Clear invalid tokens
-                    this.clearAuth();
-                    throw new Error('Authentication required');
-                }
-                
-                let errorMessage;
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || `API request failed: ${response.statusText}`;
-                } catch (e) {
-                    errorMessage = `API request failed: ${response.statusText}`;
-                }
-                throw new Error(errorMessage);
+            const responseText = await response.text();
+            console.log('Response text:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('Parsed response data:', data);
+            } catch (e) {
+                console.error('Failed to parse response as JSON:', e);
+                throw new Error('Invalid JSON response from server');
             }
-
-            const data = await response.json();
-            console.log('Response data:', data);
+            
+            if (!response.ok) {
+                const error = data.error || response.statusText;
+                throw new Error(error);
+            }
+            
             return data;
         } catch (error) {
             console.error('Request failed:', error);
@@ -64,11 +55,7 @@ export class API {
     }
 
     setAuth(accessToken, instanceUrl) {
-        console.log('Setting auth tokens:', {
-            hasAccessToken: !!accessToken,
-            hasInstanceUrl: !!instanceUrl
-        });
-        
+        console.log('Setting auth tokens');
         this.accessToken = accessToken;
         this.instanceUrl = instanceUrl;
         localStorage.setItem('sf_access_token', accessToken);
@@ -89,32 +76,28 @@ export class API {
 
     async getAuthUrl() {
         console.log('Getting auth URL...');
-        const data = await this.request('/auth/url');
+        const response = await this.request('/auth/url');
+        console.log('Auth URL response:', response);
         
-        if (!data) {
-            throw new Error('No response received from server');
+        if (!response) {
+            throw new Error('No response from server');
         }
         
-        if (!data.url) {
-            throw new Error('No URL in response: ' + JSON.stringify(data));
+        if (!response.url) {
+            throw new Error('No URL in response');
         }
         
-        if (!data.codeVerifier) {
-            throw new Error('No code verifier in response: ' + JSON.stringify(data));
+        if (!response.codeVerifier) {
+            throw new Error('No code verifier in response');
         }
         
-        console.log('Got auth URL response:', {
-            url: data.url,
-            hasCodeVerifier: !!data.codeVerifier
-        });
-        
-        return data;
+        return response;
     }
 
     async handleCallback(code, codeVerifier) {
         console.log('Handling callback with:', {
             code,
-            hasCodeVerifier: !!codeVerifier
+            codeVerifier
         });
         
         if (!code) {
@@ -125,7 +108,7 @@ export class API {
             throw new Error('No code verifier provided');
         }
         
-        const data = await this.request('/auth/callback', {
+        const response = await this.request('/auth/callback', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -133,36 +116,31 @@ export class API {
             body: JSON.stringify({ code, codeVerifier }),
         });
         
-        console.log('Callback response:', {
-            hasAccessToken: !!data.access_token,
-            hasInstanceUrl: !!data.instance_url
-        });
-        
-        if (!data.access_token || !data.instance_url) {
-            throw new Error('Invalid token response: ' + JSON.stringify(data));
+        if (!response.access_token || !response.instance_url) {
+            throw new Error('Invalid token response');
         }
         
-        this.setAuth(data.access_token, data.instance_url);
+        this.setAuth(response.access_token, response.instance_url);
     }
 
     async searchAccounts(query) {
         console.log('Searching accounts:', query);
-        const data = await this.request(`/search?q=${encodeURIComponent(query)}`);
-        console.log('Search results:', data);
-        return data;
+        const response = await this.request(`/search?q=${encodeURIComponent(query)}`);
+        console.log('Search results:', response);
+        return response;
     }
 
     async getPricebooks() {
         console.log('Getting pricebooks...');
-        const data = await this.request('/pricebooks');
-        console.log('Pricebooks:', data);
-        return data;
+        const response = await this.request('/pricebooks');
+        console.log('Pricebooks:', response);
+        return response;
     }
 
     async getPricebookEntries(pricebookId) {
         console.log('Getting pricebook entries:', pricebookId);
-        const data = await this.request(`/pricebook-entries/${pricebookId}`);
-        console.log('Pricebook entries:', data);
-        return data;
+        const response = await this.request(`/pricebook-entries/${pricebookId}`);
+        console.log('Pricebook entries:', response);
+        return response;
     }
 }
