@@ -45,6 +45,7 @@ async function generatePKCE() {
   const data = encoder.encode(verifier);
   const digest = await crypto.subtle.digest('SHA-256', data);
   const challenge = base64URLEncode(digest);
+  console.log('Generated PKCE:', { verifier, challenge });
   return { verifier, challenge };
 }
 
@@ -75,6 +76,7 @@ async function getOAuthUrl(env) {
 
   const url = `${SF_AUTH_URL}?${params.toString()}`;
   console.log('Generated OAuth URL:', url);
+  console.log('Code verifier:', verifier);
   
   return { url, codeVerifier: verifier };
 }
@@ -145,6 +147,7 @@ async function handleRequest(request, env) {
     if (path === '/auth/url') {
       try {
         const { url, codeVerifier } = await getOAuthUrl(env);
+        console.log('Returning auth URL response:', { url, codeVerifier });
         return new Response(
           JSON.stringify({ url, codeVerifier }),
           {
@@ -304,6 +307,7 @@ async function handleRequest(request, env) {
     });
 
   } catch (error) {
+    console.error('Request failed:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
