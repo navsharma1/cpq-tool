@@ -1,129 +1,111 @@
 export class Auth {
     constructor(api) {
         this.api = api;
-        this.setupLoginButton();
-        this.handleAuthCallback();
-    }
-
-    setupLoginButton() {
-        const loginButton = document.getElementById('login-button');
-        loginButton.addEventListener('click', async () => {
-            try {
-                console.log('Login button clicked');
-                console.log('API instance:', this.api);
-                console.log('Worker URL:', this.api.workerUrl);
-                
-                const response = await this.api.getAuthUrl();
-                console.log('Got auth URL response:', response);
-                
-                if (!response) {
-                    throw new Error('No response from server');
-                }
-                
-                if (!response.url) {
-                    throw new Error('No URL in response: ' + JSON.stringify(response));
-                }
-                
-                if (!response.codeVerifier) {
-                    throw new Error('No code verifier in response: ' + JSON.stringify(response));
-                }
-                
-                // Store code verifier in session storage
-                sessionStorage.setItem('code_verifier', response.codeVerifier);
-                console.log('Stored code verifier:', response.codeVerifier);
-                
-                // Redirect to Salesforce login
-                console.log('Redirecting to:', response.url);
-                window.location.href = response.url;
-            } catch (error) {
-                console.error('Login failed:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name
-                });
-                alert('Failed to start login process: ' + error.message);
-            }
+        console.log('Auth initialized with API:', api);
+        
+        // Check if we're handling a callback
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        
+        console.log('URL parameters:', {
+            code: code ? 'present' : 'not present',
+            error,
+            errorDescription
         });
-    }
 
-    async handleAuthCallback() {
-        try {
-            // Check for stored auth code from callback.html
-            const code = sessionStorage.getItem('auth_code');
-            const error = sessionStorage.getItem('auth_error');
-            const errorDescription = sessionStorage.getItem('auth_error_description');
+        if (error) {
+            console.error('OAuth error:', error, errorDescription);
+            alert(`Login failed: ${errorDescription || error}`);
+            return;
+        }
+
+        if (code) {
+            console.log('Found authorization code, retrieving code verifier...');
+            const codeVerifier = sessionStorage.getItem('code_verifier');
+            console.log('Retrieved code verifier:', codeVerifier ? 'present' : 'not present');
             
-            console.log('Callback state:', {
-                code,
-                error,
-                errorDescription,
-                hasCodeVerifier: !!sessionStorage.getItem('code_verifier')
-            });
-            
-            // Clear stored auth values
-            sessionStorage.removeItem('auth_code');
-            sessionStorage.removeItem('auth_error');
-            sessionStorage.removeItem('auth_error_description');
-            
-            if (error) {
-                console.error('Auth error:', error, errorDescription);
-                alert(`Authentication error: ${errorDescription}`);
+            if (!codeVerifier) {
+                console.error('No code verifier found in session storage');
+                alert('Login failed: No code verifier in response');
                 return;
             }
-            
-            if (code) {
-                try {
-                    // Get code verifier from session storage
-                    const codeVerifier = sessionStorage.getItem('code_verifier');
-                    console.log('Retrieved code verifier:', codeVerifier);
-                    
-                    if (!codeVerifier) {
-                        throw new Error('No code verifier found in session storage');
-                    }
-                    
-                    console.log('Calling handleCallback with:', {
-                        code,
-                        codeVerifier,
-                        hasApi: !!this.api
-                    });
-                    
-                    await this.api.handleCallback(code, codeVerifier);
-                    
-                    // Remove code verifier from storage
-                    sessionStorage.removeItem('code_verifier');
-                    console.log('Authentication successful');
-                    
-                    // Show the app
-                    this.showApp();
-                } catch (error) {
-                    console.error('Callback failed:', error);
-                    console.error('Error details:', {
-                        message: error.message,
-                        stack: error.stack,
-                        name: error.name
-                    });
-                    alert('Authentication failed: ' + error.message);
-                }
-            } else if (this.api.isAuthenticated()) {
-                // Already authenticated
-                this.showApp();
-            }
-        } catch (error) {
-            console.error('Auth callback error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
+
+            // Handle the callback
+            this.handleCallback(code, codeVerifier).catch(error => {
+                console.error('Callback handling failed:', error);
+                alert('Login failed: ' + error.message);
             });
-            alert('Authentication error: ' + error.message);
+        }
+
+        // Set up login button
+        const loginButton = document.getElementById('login-button');
+        if (loginButton) {
+            console.log('Setting up login button handler');
+            loginButton.addEventListener('click', () => this.login());
         }
     }
 
-    showApp() {
-        document.getElementById('auth-section').classList.add('d-none');
-        document.getElementById('app').classList.remove('d-none');
-        // Dispatch event for app initialization
-        window.dispatchEvent(new CustomEvent('auth:success'));
+    async login() {
+        try {
+            console.log('Starting login process...');
+            
+            // Get the OAuth URL and code verifier
+            const { url, codeVerifier } = await this.api.getAuthUrl();
+            console.log('Got auth URL and code verifier:', {
+                url: url ? 'present' : 'not present',
+                codeVerifier: codeVerifier ? 'present' : 'not present'
+            });
+            
+            if (!url || !codeVerifier) {
+                throw new Error('Invalid response from /auth/url');
+            }
+
+            // Store the code verifier
+            console.log('Storing code verifier in session storage');
+            sessionStorage.setItem('code_verifier', codeVerifier);
+
+            // Redirect to Salesforce
+            console.log('Redirecting to Salesforce login URL');
+            window.location.href = url;
+        } catch (error) {
+            console.error('Login failed:', error);
+            alert('Login failed: ' + error.message);
+        }
+    }
+
+    async handleCallback(code, codeVerifier) {
+        try {
+            console.log('Handling OAuth callback:', {
+                code: code ? 'present' : 'not present',
+                codeVerifier: codeVerifier ? 'present' : 'not present'
+            });
+
+            // Clear the code verifier from storage
+            console.log('Clearing code verifier from session storage');
+            sessionStorage.removeItem('code_verifier');
+
+            // Exchange the code for tokens
+            console.log('Exchanging code for tokens...');
+            await this.api.handleCallback(code, codeVerifier);
+            console.log('Token exchange successful');
+
+            // Dispatch auth success event
+            console.log('Dispatching auth:success event');
+            window.dispatchEvent(new Event('auth:success'));
+
+            // Show the app UI
+            console.log('Showing app UI');
+            document.getElementById('auth-section').classList.add('d-none');
+            document.getElementById('app').classList.remove('d-none');
+
+            // Clean up the URL
+            console.log('Cleaning up URL');
+            window.history.replaceState({}, document.title, '/');
+        } catch (error) {
+            console.error('Callback handling failed:', error);
+            throw error;
+        }
     }
 }

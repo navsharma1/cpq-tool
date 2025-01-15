@@ -61,10 +61,10 @@ async function generatePKCE() {
 
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
-  console.log('Encoded verifier:', data);
+  console.log('Encoded verifier:', new Uint8Array(data));
 
   const digest = await crypto.subtle.digest('SHA-256', data);
-  console.log('Generated digest:', digest);
+  console.log('Generated digest:', new Uint8Array(digest));
 
   const challenge = base64URLEncode(digest);
   console.log('Generated challenge:', challenge);
@@ -85,7 +85,7 @@ async function getOAuthUrl(env) {
   }
 
   const { verifier, challenge } = await generatePKCE();
-  console.log('PKCE values:', { verifier, challenge });
+  console.log('Generated PKCE values:', { verifier, challenge });
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -99,9 +99,11 @@ async function getOAuthUrl(env) {
 
   const url = `${SF_AUTH_URL}?${params.toString()}`;
   console.log('Generated OAuth URL:', url);
-  console.log('Code verifier:', verifier);
-  
-  return { url, codeVerifier: verifier };
+
+  return {
+    url,
+    codeVerifier: verifier
+  };
 }
 
 // Exchange code for access token
@@ -191,7 +193,15 @@ async function handleRequest(request, env) {
         };
         console.log('Response headers:', headers);
         
-        return new Response(JSON.stringify(responseData), { headers });
+        const response = new Response(JSON.stringify(responseData), { headers });
+        console.log('Response object:', response);
+        
+        // Log the response body for debugging
+        const clonedResponse = response.clone();
+        const responseBody = await clonedResponse.json();
+        console.log('Response body:', responseBody);
+        
+        return response;
       } catch (error) {
         console.error('Error generating auth URL:', error);
         return new Response(
