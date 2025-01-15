@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating...</title>
+    <script>
+        // Get the code from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+
+        if (error) {
+            // Store error in sessionStorage and redirect
+            sessionStorage.setItem('auth_error', error);
+            sessionStorage.setItem('auth_error_description', errorDescription);
+            window.location.href = '/';
+        } else if (code) {
+            // Store code in sessionStorage and redirect
+            sessionStorage.setItem('auth_code', code);
+            window.location.href = '/';
+        } else {
+            // No code or error, just redirect
+            window.location.href = '/';
+        }
+    </script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Authenticating...</h2>
+        <p>Please wait while we complete the authentication process.</p>
+    </div>
+</body>
+</html>

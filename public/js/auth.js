@@ -21,16 +21,19 @@ export class Auth {
     }
 
     async handleAuthCallback() {
-        // Check if we're handling a callback
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
+        // Check for stored auth code from callback.html
+        const code = sessionStorage.getItem('auth_code');
+        const error = sessionStorage.getItem('auth_error');
+        const errorDescription = sessionStorage.getItem('auth_error_description');
+        
+        // Clear stored auth values
+        sessionStorage.removeItem('auth_code');
+        sessionStorage.removeItem('auth_error');
+        sessionStorage.removeItem('auth_error_description');
         
         if (error) {
             console.error('Auth error:', error, errorDescription);
             alert(`Authentication error: ${errorDescription}`);
-            window.location.href = '/'; // Redirect back to home
             return;
         }
         
@@ -43,15 +46,13 @@ export class Auth {
                 }
                 
                 await this.api.handleCallback(code, codeVerifier);
-                // Remove code from URL and code verifier from storage
-                window.history.replaceState({}, document.title, window.location.pathname);
+                // Remove code verifier from storage
                 sessionStorage.removeItem('code_verifier');
                 // Show the app
                 this.showApp();
             } catch (error) {
                 console.error('Auth callback failed:', error);
                 alert('Authentication failed. Please try again.');
-                window.location.href = '/'; // Redirect back to home
             }
         } else if (this.api.isAuthenticated()) {
             // Already authenticated
