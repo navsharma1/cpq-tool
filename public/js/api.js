@@ -22,7 +22,8 @@ class API {
                 this.clearAuth();
                 throw new Error('Authentication required');
             }
-            throw new Error(`API request failed: ${response.statusText}`);
+            const error = await response.json();
+            throw new Error(error.error || `API request failed: ${response.statusText}`);
         }
 
         return response.json();
@@ -48,16 +49,16 @@ class API {
 
     async getAuthUrl() {
         const response = await this.request('/auth/url');
-        return response.url;
+        return response;
     }
 
-    async handleCallback(code) {
+    async handleCallback(code, codeVerifier) {
         const response = await this.request('/auth/callback', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ code })
+            body: JSON.stringify({ code, codeVerifier })
         });
         
         this.setAuth(response.access_token, response.instance_url);

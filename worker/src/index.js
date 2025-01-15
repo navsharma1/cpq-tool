@@ -21,8 +21,36 @@ async function handleOptions(request) {
   });
 }
 
+// Generate random string for PKCE
+function generateRandomString(length) {
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let text = '';
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+// Base64URL encode
+function base64URLEncode(str) {
+  return btoa(str)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+// Generate code verifier and challenge
+async function generatePKCE() {
+  const verifier = generateRandomString(128);
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const challenge = base64URLEncode(String.fromCharCode(...new Uint8Array(hash)));
+  return { verifier, challenge };
+}
+
 // Get OAuth URL for Salesforce login
-function getOAuthUrl(env) {
+async function getOAuthUrl(env) {
   console.log('Environment variables:', {
     clientId: env.SF_CLIENT_ID,
     redirectUri: env.REDIRECT_URI
@@ -36,27 +64,33 @@ function getOAuthUrl(env) {
     throw new Error('REDIRECT_URI is not configured');
   }
 
+  const { verifier, challenge } = await generatePKCE();
+
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: env.SF_CLIENT_ID,
     redirect_uri: env.REDIRECT_URI,
     scope: 'api refresh_token',
     state: crypto.randomUUID(),
+    code_challenge: challenge,
+    code_challenge_method: 'S256'
   });
 
   const url = `${SF_AUTH_URL}?${params.toString()}`;
   console.log('Generated OAuth URL:', url);
-  return url;
+  
+  return { url, codeVerifier: verifier };
 }
 
 // Exchange code for access token
-async function getAccessToken(code, env) {
+async function getAccessToken(code, env, codeVerifier) {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: env.SF_CLIENT_ID,
     client_secret: env.SF_CLIENT_SECRET,
     redirect_uri: env.REDIRECT_URI,
     code: code,
+    code_verifier: codeVerifier
   });
 
   const response = await fetch(SF_TOKEN_URL, {
@@ -109,10 +143,9 @@ async function handleRequest(request, env) {
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
-        const authUrl = getOAuthUrl(env);
-        console.log('Returning auth URL:', authUrl);
+        const { url, codeVerifier } = await getOAuthUrl(env);
         return new Response(
-          JSON.stringify({ url: authUrl }),
+          JSON.stringify({ url, codeVerifier }),
           {
             headers: {
               'Content-Type': 'application/json',
@@ -142,7 +175,12 @@ async function handleRequest(request, env) {
         throw new Error('No authorization code provided');
       }
 
-      const tokenResponse = await getAccessToken(code, env);
+      const codeVerifier = url.searchParams.get('codeVerifier');
+      if (!codeVerifier) {
+        throw new Error('No code verifier provided');
+      }
+
+      const tokenResponse = await getAccessToken(code, env, codeVerifier);
       return new Response(
         JSON.stringify({
           access_token: tokenResponse.access_token,

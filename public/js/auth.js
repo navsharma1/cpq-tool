@@ -9,8 +9,10 @@ class Auth {
         const loginButton = document.getElementById('login-button');
         loginButton.addEventListener('click', async () => {
             try {
-                const authUrl = await this.api.getAuthUrl();
-                window.location.href = authUrl;
+                const response = await this.api.getAuthUrl();
+                // Store code verifier in session storage
+                sessionStorage.setItem('code_verifier', response.codeVerifier);
+                window.location.href = response.url;
             } catch (error) {
                 console.error('Failed to get auth URL:', error);
                 alert('Failed to start login process. Please try again.');
@@ -22,12 +24,27 @@ class Auth {
         // Check if we're handling a callback
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
+        const error = urlParams.get('error');
+        const errorDescription = urlParams.get('error_description');
+        
+        if (error) {
+            console.error('Auth error:', error, errorDescription);
+            alert(`Authentication error: ${errorDescription}`);
+            return;
+        }
         
         if (code) {
             try {
-                await this.api.handleCallback(code);
-                // Remove code from URL
+                // Get code verifier from session storage
+                const codeVerifier = sessionStorage.getItem('code_verifier');
+                if (!codeVerifier) {
+                    throw new Error('No code verifier found');
+                }
+                
+                await this.api.handleCallback(code, codeVerifier);
+                // Remove code from URL and code verifier from storage
                 window.history.replaceState({}, document.title, window.location.pathname);
+                sessionStorage.removeItem('code_verifier');
                 // Show the app
                 this.showApp();
             } catch (error) {
