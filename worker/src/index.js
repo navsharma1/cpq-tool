@@ -23,20 +23,18 @@ async function handleOptions(request) {
 
 // Generate random string for PKCE
 function generateRandomString(length) {
-  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  let text = '';
-  for (let i = 0; i < length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array).map(x => charset[x % charset.length]).join('');
 }
 
 // Base64URL encode
-function base64URLEncode(str) {
-  return btoa(str)
+function base64URLEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
-    .replace(/=/g, '');
+    .replace(/=+$/, '');
 }
 
 // Generate code verifier and challenge
@@ -44,17 +42,14 @@ async function generatePKCE() {
   const verifier = generateRandomString(128);
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  const challenge = base64URLEncode(String.fromCharCode(...new Uint8Array(hash)));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  const challenge = base64URLEncode(digest);
   return { verifier, challenge };
 }
 
 // Get OAuth URL for Salesforce login
 async function getOAuthUrl(env) {
-  console.log('Environment variables:', {
-    clientId: env.SF_CLIENT_ID,
-    redirectUri: env.REDIRECT_URI
-  });
+  console.log('Generating OAuth URL with PKCE');
 
   if (!env.SF_CLIENT_ID) {
     throw new Error('SF_CLIENT_ID is not configured');
@@ -65,6 +60,7 @@ async function getOAuthUrl(env) {
   }
 
   const { verifier, challenge } = await generatePKCE();
+  console.log('Generated PKCE:', { verifier, challenge });
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -84,6 +80,8 @@ async function getOAuthUrl(env) {
 
 // Exchange code for access token
 async function getAccessToken(code, env, codeVerifier) {
+  console.log('Exchanging code for token with verifier:', codeVerifier);
+
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: env.SF_CLIENT_ID,
@@ -102,7 +100,9 @@ async function getAccessToken(code, env, codeVerifier) {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get access token');
+    const error = await response.json();
+    console.error('Token exchange failed:', error);
+    throw new Error(error.error_description || 'Failed to exchange code for token');
   }
 
   return response.json();
@@ -170,29 +170,56 @@ async function handleRequest(request, env) {
 
     // Handle OAuth callback
     if (path === '/auth/callback') {
-      const code = url.searchParams.get('code');
+      if (request.method !== 'POST') {
+        return new Response(
+          JSON.stringify({ error: 'Method not allowed' }),
+          {
+            status: 405,
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
+      }
+
+      const body = await request.json();
+      const { code, codeVerifier } = body;
+
       if (!code) {
         throw new Error('No authorization code provided');
       }
 
-      const codeVerifier = url.searchParams.get('codeVerifier');
       if (!codeVerifier) {
         throw new Error('No code verifier provided');
       }
 
-      const tokenResponse = await getAccessToken(code, env, codeVerifier);
-      return new Response(
-        JSON.stringify({
-          access_token: tokenResponse.access_token,
-          instance_url: tokenResponse.instance_url,
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getCorsHeaders(request),
-          },
-        }
-      );
+      console.log('Processing callback with code and verifier:', { code, codeVerifier });
+
+      try {
+        const tokenResponse = await getAccessToken(code, env, codeVerifier);
+        return new Response(
+          JSON.stringify(tokenResponse),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
+      } catch (error) {
+        console.error('Token exchange failed:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              ...getCorsHeaders(request),
+            },
+          }
+        );
+      }
     }
 
     // All other endpoints require authentication

@@ -30,6 +30,7 @@ export class Auth {
         if (error) {
             console.error('Auth error:', error, errorDescription);
             alert(`Authentication error: ${errorDescription}`);
+            window.location.href = '/'; // Redirect back to home
             return;
         }
         
@@ -50,6 +51,7 @@ export class Auth {
             } catch (error) {
                 console.error('Auth callback failed:', error);
                 alert('Authentication failed. Please try again.');
+                window.location.href = '/'; // Redirect back to home
             }
         } else if (this.api.isAuthenticated()) {
             // Already authenticated
