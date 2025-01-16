@@ -30,8 +30,16 @@ export class API {
             const contentType = response.headers.get('content-type');
             console.log('Response content type:', contentType);
             
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error(`Expected JSON response, got ${contentType}`);
+            }
+            
             const responseText = await response.text();
             console.log('Raw response text:', responseText);
+            
+            if (!responseText) {
+                throw new Error('Empty response from server');
+            }
             
             let data;
             try {
@@ -39,7 +47,7 @@ export class API {
                 console.log('Parsed response data:', data);
             } catch (e) {
                 console.error('Failed to parse response as JSON:', e);
-                throw new Error(`Invalid JSON response from server: ${responseText}`);
+                throw new Error(`Invalid JSON response: ${responseText}`);
             }
             
             if (!response.ok) {
@@ -85,20 +93,20 @@ export class API {
                 throw new Error(`Invalid response format: ${JSON.stringify(response)}`);
             }
 
-            if (!response.url) {
+            if (!response.url || typeof response.url !== 'string') {
                 throw new Error(`No URL in response: ${JSON.stringify(response)}`);
             }
 
-            if (!response.codeVerifier) {
+            if (!response.codeVerifier || typeof response.codeVerifier !== 'string') {
                 throw new Error(`No code verifier in response: ${JSON.stringify(response)}`);
             }
 
             // Log successful response
             console.log('Auth URL response validated:', {
-                url: response.url,
-                hasCodeVerifier: !!response.codeVerifier,
                 urlLength: response.url.length,
-                verifierLength: response.codeVerifier.length
+                verifierLength: response.codeVerifier.length,
+                urlSample: response.url.substring(0, 50) + '...',
+                verifierSample: response.codeVerifier.substring(0, 10) + '...'
             });
 
             return response;

@@ -266,60 +266,87 @@ async function handleRequest(request, env) {
       try {
         // Generate OAuth URL and code verifier
         const result = await getOAuthUrl(env);
-        console.log('getOAuthUrl raw result:', result);
+        console.log('Raw result from getOAuthUrl:', JSON.stringify(result, null, 2));
 
         // Ensure result is an object with required fields
         if (!result || typeof result !== 'object') {
-          throw new Error('Invalid result from getOAuthUrl');
+          throw new Error(`Invalid result from getOAuthUrl: ${JSON.stringify(result)}`);
         }
 
         if (!result.url || typeof result.url !== 'string') {
-          throw new Error('Missing or invalid url in result');
+          throw new Error(`Missing or invalid url in result: ${JSON.stringify(result)}`);
         }
 
         if (!result.codeVerifier || typeof result.codeVerifier !== 'string') {
-          throw new Error('Missing or invalid codeVerifier in result');
+          throw new Error(`Missing or invalid codeVerifier in result: ${JSON.stringify(result)}`);
         }
 
-        // Create response data object
+        // Create response data as a plain object
         const responseData = {
           url: result.url,
           codeVerifier: result.codeVerifier
         };
 
-        console.log('Response data:', JSON.stringify(responseData, null, 2));
+        // Convert to JSON string with proper escaping
+        const responseBody = JSON.stringify(responseData);
+        console.log('Stringified response body:', responseBody);
 
-        // Create response with explicit headers
+        // Parse the stringified response to verify it's valid JSON
+        try {
+          const parsed = JSON.parse(responseBody);
+          console.log('Parsed response body (validation):', parsed);
+          if (!parsed.url || !parsed.codeVerifier) {
+            throw new Error('Missing required fields after JSON parsing');
+          }
+        } catch (e) {
+          throw new Error(`Failed to validate JSON response: ${e.message}`);
+        }
+
+        // Create headers with explicit CORS
         const headers = new Headers({
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
+          'Cache-Control': 'no-store'
         });
 
-        // Create response with validated data
-        const response = new Response(JSON.stringify(responseData), {
+        // Create response with validated JSON
+        const response = new Response(responseBody, {
           status: 200,
           headers
         });
 
-        // Verify response is correct
+        // Verify final response
         const clone = response.clone();
-        const responseText = await clone.text();
-        console.log('Final response text:', responseText);
+        const finalText = await clone.text();
+        console.log('Final response text:', finalText);
         
+        // Verify the final response can be parsed as JSON
+        try {
+          const finalJson = JSON.parse(finalText);
+          console.log('Final response parsed:', finalJson);
+          if (!finalJson.url || !finalJson.codeVerifier) {
+            throw new Error('Missing required fields in final response');
+          }
+        } catch (e) {
+          throw new Error(`Invalid JSON in final response: ${e.message}`);
+        }
+
         return response;
       } catch (error) {
         console.error('Error in /auth/url:', error);
         const errorResponse = {
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
+          details: error.toString()
         };
         return new Response(JSON.stringify(errorResponse), {
           status: 500,
           headers: {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store'
           }
         });
       }
