@@ -26,7 +26,10 @@ function generateRandomString(length) {
     const array = new Uint8Array(length);
     crypto.getRandomValues(array);
     const result = Array.from(array).map(x => charset[x % charset.length]).join('');
-    console.log('Generated random string successfully');
+    console.log('Generated random string successfully:', {
+      length: result.length,
+      sample: result.substring(0, 10) + '...'
+    });
     return result;
   } catch (error) {
     console.error('Random string generation failed:', error);
@@ -40,20 +43,39 @@ async function generatePKCE() {
     console.log('Starting PKCE generation...');
     
     const verifier = generateRandomString(128);
-    console.log('Generated verifier');
+    console.log('Generated verifier:', {
+      length: verifier.length,
+      sample: verifier.substring(0, 10) + '...'
+    });
     
     const encoder = new TextEncoder();
     const data = encoder.encode(verifier);
-    console.log('Encoded verifier');
+    console.log('Encoded verifier:', {
+      length: data.length,
+      type: data.constructor.name
+    });
     
     const digest = await crypto.subtle.digest('SHA-256', data);
-    console.log('Generated digest');
+    console.log('Generated digest:', {
+      length: digest.byteLength,
+      type: digest.constructor.name
+    });
     
     const challenge = base64URLEncode(digest);
-    console.log('Generated challenge');
+    console.log('Generated challenge:', {
+      length: challenge.length,
+      sample: challenge.substring(0, 10) + '...'
+    });
     
-    console.log('PKCE generation successful:', { verifier, challenge });
-    return { verifier, challenge };
+    const result = { verifier, challenge };
+    console.log('PKCE generation successful:', {
+      verifierLength: result.verifier.length,
+      challengeLength: result.challenge.length,
+      verifierSample: result.verifier.substring(0, 10) + '...',
+      challengeSample: result.challenge.substring(0, 10) + '...'
+    });
+    
+    return result;
   } catch (error) {
     console.error('PKCE generation failed:', error);
     throw error;
@@ -224,19 +246,30 @@ async function handleRequest(request, env) {
     if (path === '/auth/url') {
       try {
         // Generate OAuth URL and code verifier
-        const authData = await getOAuthUrl(env);
+        const { url, codeVerifier } = await getOAuthUrl(env);
         console.log('Generated auth data:', {
-          hasUrl: !!authData.url,
-          hasCodeVerifier: !!authData.codeVerifier,
-          urlLength: authData.url.length,
-          verifierLength: authData.codeVerifier.length
+          hasUrl: !!url,
+          hasCodeVerifier: !!codeVerifier,
+          urlLength: url.length,
+          verifierLength: codeVerifier.length
         });
 
-        // Create response
-        const responseBody = JSON.stringify(authData);
+        // Create response object
+        const responseData = {
+          url: url,
+          codeVerifier: codeVerifier
+        };
+
+        // Validate response data
+        if (!responseData.url || !responseData.codeVerifier) {
+          throw new Error('Missing required fields in response data');
+        }
+
+        // Convert to JSON string
+        const responseBody = JSON.stringify(responseData);
         console.log('Response body:', responseBody);
 
-        // Return response with both URL and code verifier
+        // Create and validate response
         const response = new Response(responseBody, {
           headers: {
             'Content-Type': 'application/json',
@@ -249,7 +282,8 @@ async function handleRequest(request, env) {
           status: response.status,
           hasContentType: response.headers.has('Content-Type'),
           hasCors: response.headers.has('Access-Control-Allow-Origin'),
-          bodySize: responseBody.length
+          bodySize: responseBody.length,
+          body: responseBody
         });
 
         return response;
