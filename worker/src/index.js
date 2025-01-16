@@ -104,31 +104,23 @@ async function generatePKCE() {
 async function getOAuthUrl(env) {
   try {
     console.log('Starting OAuth URL generation...');
-    console.log('Environment variables:', {
-      hasSfClientId: !!env.SF_CLIENT_ID,
-      hasRedirectUri: !!env.REDIRECT_URI,
-      redirectUri: env.REDIRECT_URI
-    });
 
     // Validate environment variables
     if (!env.SF_CLIENT_ID) {
       throw new Error('SF_CLIENT_ID is not configured');
     }
-
     if (!env.REDIRECT_URI) {
       throw new Error('REDIRECT_URI is not configured');
     }
 
     // Generate PKCE values
     const { verifier, challenge } = await generatePKCE();
-    console.log('Generated PKCE values:', {
-      hasVerifier: !!verifier,
-      hasChallenge: !!challenge,
+    console.log('PKCE values:', {
       verifierLength: verifier.length,
       challengeLength: challenge.length
     });
 
-    // Build OAuth URL
+    // Build OAuth URL params
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.SF_CLIENT_ID,
@@ -139,29 +131,26 @@ async function getOAuthUrl(env) {
       code_challenge_method: 'S256'
     });
 
-    const url = `${SF_AUTH_URL}?${params.toString()}`;
-    console.log('Generated OAuth URL:', url);
+    // Build full URL
+    const authUrl = `${SF_AUTH_URL}?${params.toString()}`;
 
-    // Return both URL and code verifier
+    // Create and validate result
     const result = {
-      url,
+      url: authUrl,
       codeVerifier: verifier
     };
 
-    // Validate response
-    if (!result.url) {
-      throw new Error('Failed to generate OAuth URL');
+    // Validate result
+    if (!result.url || typeof result.url !== 'string') {
+      throw new Error('Invalid URL generated');
     }
-    if (!result.codeVerifier) {
-      throw new Error('Failed to generate code verifier');
+    if (!result.codeVerifier || typeof result.codeVerifier !== 'string') {
+      throw new Error('Invalid code verifier generated');
     }
 
-    console.log('OAuth URL generation successful:', {
-      hasUrl: !!result.url,
-      hasCodeVerifier: !!result.codeVerifier,
+    console.log('OAuth URL generated:', {
       urlLength: result.url.length,
-      verifierLength: result.codeVerifier.length,
-      fullResult: result // Log the full result object
+      verifierLength: result.codeVerifier.length
     });
 
     return result;
@@ -251,102 +240,68 @@ async function sfRequest(instanceUrl, accessToken, path, method = 'GET', body = 
 
 // Handle API requests
 async function handleRequest(request, env) {
-  // Handle CORS preflight
-  if (request.method === 'OPTIONS') {
-    return handleOptions(request);
-  }
-
   try {
     const url = new URL(request.url);
     const path = url.pathname;
     console.log('Handling request:', { method: request.method, path });
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return handleOptions(request);
+    }
 
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
         // Generate OAuth URL and code verifier
         const result = await getOAuthUrl(env);
-        console.log('Raw result from getOAuthUrl:', JSON.stringify(result, null, 2));
-
-        // Ensure result is an object with required fields
-        if (!result || typeof result !== 'object') {
-          throw new Error(`Invalid result from getOAuthUrl: ${JSON.stringify(result)}`);
-        }
-
-        if (!result.url || typeof result.url !== 'string') {
-          throw new Error(`Missing or invalid url in result: ${JSON.stringify(result)}`);
-        }
-
-        if (!result.codeVerifier || typeof result.codeVerifier !== 'string') {
-          throw new Error(`Missing or invalid codeVerifier in result: ${JSON.stringify(result)}`);
-        }
-
-        // Create response data as a plain object
+        
+        // Create response object
         const responseData = {
           url: result.url,
           codeVerifier: result.codeVerifier
         };
 
-        // Convert to JSON string with proper escaping
-        const responseBody = JSON.stringify(responseData);
-        console.log('Stringified response body:', responseBody);
-
-        // Parse the stringified response to verify it's valid JSON
-        try {
-          const parsed = JSON.parse(responseBody);
-          console.log('Parsed response body (validation):', parsed);
-          if (!parsed.url || !parsed.codeVerifier) {
-            throw new Error('Missing required fields after JSON parsing');
-          }
-        } catch (e) {
-          throw new Error(`Failed to validate JSON response: ${e.message}`);
+        // Validate response data
+        if (!responseData.url || typeof responseData.url !== 'string') {
+          throw new Error('Missing URL in response data');
+        }
+        if (!responseData.codeVerifier || typeof responseData.codeVerifier !== 'string') {
+          throw new Error('Missing code verifier in response data');
         }
 
-        // Create headers with explicit CORS
-        const headers = new Headers({
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'Cache-Control': 'no-store'
-        });
-
-        // Create response with validated JSON
-        const response = new Response(responseBody, {
+        // Create response
+        const response = new Response(JSON.stringify(responseData), {
           status: 200,
-          headers
-        });
-
-        // Verify final response
-        const clone = response.clone();
-        const finalText = await clone.text();
-        console.log('Final response text:', finalText);
-        
-        // Verify the final response can be parsed as JSON
-        try {
-          const finalJson = JSON.parse(finalText);
-          console.log('Final response parsed:', finalJson);
-          if (!finalJson.url || !finalJson.codeVerifier) {
-            throw new Error('Missing required fields in final response');
-          }
-        } catch (e) {
-          throw new Error(`Invalid JSON in final response: ${e.message}`);
-        }
-
-        return response;
-      } catch (error) {
-        console.error('Error in /auth/url:', error);
-        const errorResponse = {
-          error: error.message,
-          stack: error.stack,
-          details: error.toString()
-        };
-        return new Response(JSON.stringify(errorResponse), {
-          status: 500,
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
             'Cache-Control': 'no-store'
+          }
+        });
+
+        // Verify response
+        const clone = response.clone();
+        const responseText = await clone.text();
+        console.log('Response verification:', {
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: responseText
+        });
+
+        return response;
+      } catch (error) {
+        console.error('Error generating auth URL:', error);
+        return new Response(JSON.stringify({
+          error: error.message,
+          stack: error.stack
+        }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
           }
         });
       }
