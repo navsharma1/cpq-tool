@@ -103,10 +103,17 @@ async function generatePKCE() {
 // Get OAuth URL for Salesforce login
 async function getOAuthUrl(env) {
   try {
+    if (!env.SF_CLIENT_ID) {
+      throw new Error('SF_CLIENT_ID is not configured');
+    }
+    if (!env.REDIRECT_URI) {
+      throw new Error('REDIRECT_URI is not configured');
+    }
+
     // Generate PKCE values
     const { verifier, challenge } = await generatePKCE();
     
-    // Build OAuth URL
+    // Build OAuth URL params
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.SF_CLIENT_ID,
@@ -117,13 +124,24 @@ async function getOAuthUrl(env) {
       code_challenge_method: 'S256'
     });
 
+    // Build full URL
     const authUrl = `${SF_AUTH_URL}?${params.toString()}`;
-    
-    // Return both URL and code verifier
-    return {
+
+    // Create response data
+    const responseData = {
       url: authUrl,
       codeVerifier: verifier
     };
+
+    // Validate response data
+    if (!responseData.url || typeof responseData.url !== 'string') {
+      throw new Error('Failed to generate valid OAuth URL');
+    }
+    if (!responseData.codeVerifier || typeof responseData.codeVerifier !== 'string') {
+      throw new Error('Failed to generate valid code verifier');
+    }
+
+    return responseData;
   } catch (error) {
     console.error('OAuth URL generation failed:', error);
     throw error;
@@ -223,12 +241,20 @@ async function handleRequest(request, env) {
     // Get OAuth URL
     if (path === '/auth/url') {
       try {
-        // Generate OAuth URL and code verifier
         const result = await getOAuthUrl(env);
-        console.log('Generated auth data:', result);
+        console.log('Generated auth data:', {
+          hasUrl: !!result.url,
+          hasCodeVerifier: !!result.codeVerifier,
+          urlLength: result.url.length,
+          verifierLength: result.codeVerifier.length
+        });
 
-        // Create response
-        const response = new Response(JSON.stringify(result), {
+        // Stringify response data
+        const responseBody = JSON.stringify(result);
+        console.log('Response body:', responseBody);
+
+        // Create response with proper headers
+        const response = new Response(responseBody, {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
@@ -242,11 +268,16 @@ async function handleRequest(request, env) {
         // Verify response
         const clone = response.clone();
         const responseText = await clone.text();
-        console.log('Final response:', responseText);
+        const parsedResponse = JSON.parse(responseText);
+        console.log('Response verification:', {
+          isValidJson: true,
+          hasUrl: !!parsedResponse.url,
+          hasCodeVerifier: !!parsedResponse.codeVerifier
+        });
 
         return response;
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error generating auth URL:', error);
         return new Response(JSON.stringify({
           error: error.message
         }), {

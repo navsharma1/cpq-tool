@@ -10,51 +10,38 @@ export class API {
         });
     }
 
-    async request(endpoint, options = {}) {
-        const url = `${this.workerUrl}${endpoint}`;
-        console.log('Making request to:', url, {
-            ...options,
-            headers: options.headers || {}
-        });
+    async request(path, options = {}) {
+        const url = `${this.workerUrl}${path}`;
+        console.log('Making request to:', url);
 
         try {
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     'Content-Type': 'application/json',
-                    ...options.headers,
+                    ...options.headers
                 }
             });
-            console.log('Response status:', response.status);
-            
-            const contentType = response.headers.get('content-type');
-            console.log('Response content type:', contentType);
-            
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error(`Expected JSON response, got ${contentType}`);
-            }
-            
-            const responseText = await response.text();
-            console.log('Raw response text:', responseText);
-            
-            if (!responseText) {
-                throw new Error('Empty response from server');
-            }
-            
-            let data;
-            try {
-                data = JSON.parse(responseText);
-                console.log('Parsed response data:', data);
-            } catch (e) {
-                console.error('Failed to parse response as JSON:', e);
-                throw new Error(`Invalid JSON response: ${responseText}`);
-            }
-            
+
             if (!response.ok) {
-                const error = data.error || response.statusText;
-                throw new Error(error);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Response not JSON');
+            }
+
+            const text = await response.text();
+            console.log('Raw response text:', text);
+
+            if (!text) {
+                throw new Error('Empty response');
+            }
+
+            const data = JSON.parse(text);
+            console.log('Parsed response data:', data);
+
             return data;
         } catch (error) {
             console.error('Request failed:', error);
@@ -109,10 +96,7 @@ export class API {
                 codeVerifier: response.codeVerifier
             };
 
-            console.log('Validated auth response:', {
-                hasUrl: !!result.url,
-                hasCodeVerifier: !!result.codeVerifier
-            });
+            console.log('Validated auth response:', result);
 
             return result;
         } catch (error) {
