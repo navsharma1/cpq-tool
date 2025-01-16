@@ -81,7 +81,10 @@ async function getOAuthUrl(env) {
 
     // Generate PKCE values
     const { verifier, challenge } = await generatePKCE();
-    console.log('Generated PKCE values');
+    console.log('Generated PKCE values:', {
+      hasVerifier: !!verifier,
+      hasChallenge: !!challenge
+    });
 
     // Build OAuth URL
     const params = new URLSearchParams({
@@ -96,14 +99,17 @@ async function getOAuthUrl(env) {
     console.log('Built URL parameters');
 
     const url = `${SF_AUTH_URL}?${params.toString()}`;
-    console.log('Generated OAuth URL');
+    console.log('Generated OAuth URL:', url);
 
     // Return both URL and code verifier
     const result = {
       url,
       codeVerifier: verifier
     };
-    console.log('OAuth URL generation successful:', result);
+    console.log('OAuth URL generation successful:', {
+      hasUrl: !!result.url,
+      hasCodeVerifier: !!result.codeVerifier
+    });
     return result;
   } catch (error) {
     console.error('OAuth URL generation failed:', error);
@@ -206,11 +212,14 @@ async function handleRequest(request, env) {
       try {
         // Generate OAuth URL and code verifier
         const authData = await getOAuthUrl(env);
-        console.log('Generated auth data:', authData);
+        console.log('Generated auth data:', {
+          hasUrl: !!authData.url,
+          hasCodeVerifier: !!authData.codeVerifier
+        });
 
         // Create response
         const responseBody = JSON.stringify(authData);
-        console.log('Created response body:', responseBody);
+        console.log('Response body:', responseBody);
 
         // Return response with both URL and code verifier
         const response = new Response(responseBody, {
