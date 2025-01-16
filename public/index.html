@@ -6,27 +6,43 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Salesforce CPQ Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="/styles.css" rel="stylesheet" type="text/css">
 </head>
 <body>
-    <div class="container mt-4">
+    <div class="container">
         <!-- Authentication Section -->
-        <div id="auth-section" class="text-center mb-4">
+        <div id="auth-section" class="text-center">
             <h1 class="mb-4">Salesforce CPQ Tool</h1>
-            <button id="login-button" class="btn btn-primary">Login with Salesforce</button>
+            <p class="lead mb-4">Create and manage quotes seamlessly with our intuitive CPQ tool</p>
+            <button id="login-button" class="btn btn-primary">
+                <i class="bi bi-cloud me-2"></i>Login with Salesforce
+            </button>
         </div>
 
         <!-- Main App (hidden until authenticated) -->
         <div id="app" class="d-none">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Quote Builder</h2>
+                <button id="logout-button" class="btn btn-outline-danger">
+                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </button>
+            </div>
+
             <!-- Account Search -->
             <div class="card mb-4">
-                <div class="card-header">
-                    <h3>Account Search</h3>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3><i class="bi bi-search me-2"></i>Account Search</h3>
+                    <span class="badge bg-primary" id="results-count">0 results</span>
                 </div>
                 <div class="card-body">
                     <div class="input-group mb-3">
-                        <input type="text" id="account-search" class="form-control" placeholder="Search accounts...">
-                        <button class="btn btn-outline-secondary" type="button" id="search-button">Search</button>
+                        <span class="input-group-text"><i class="bi bi-building"></i></span>
+                        <input type="text" id="account-search" class="form-control" placeholder="Search accounts by name, industry, or location...">
+                        <button class="btn btn-primary" type="button" id="search-button">
+                            <i class="bi bi-search me-2"></i>Search
+                        </button>
                     </div>
                     <div id="account-results" class="list-group">
                         <!-- Account results will be inserted here -->
@@ -37,20 +53,56 @@
             <!-- Quote Builder -->
             <div id="quote-builder" class="card mb-4 d-none">
                 <div class="card-header">
-                    <h3>Quote Builder</h3>
+                    <h3><i class="bi bi-file-earmark-text me-2"></i>Quote Details</h3>
                 </div>
                 <div class="card-body">
                     <!-- Selected Account Info -->
                     <div id="selected-account" class="alert alert-info mb-4">
-                        <!-- Account details will be shown here -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="alert-heading mb-2">Account Information</h4>
+                                <div id="account-details">
+                                    <!-- Account details will be shown here -->
+                                </div>
+                            </div>
+                            <button class="btn btn-outline-primary btn-sm" id="change-account">
+                                <i class="bi bi-pencil me-2"></i>Change Account
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quote Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="quote-name" class="form-label">Quote Name</label>
+                                <input type="text" class="form-control" id="quote-name" placeholder="Enter quote name">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expiration-date" class="form-label">Expiration Date</label>
+                                <input type="date" class="form-control" id="expiration-date">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Price Book Selection -->
                     <div class="mb-4">
-                        <label for="pricebook-select" class="form-label">Select Price Book:</label>
-                        <select id="pricebook-select" class="form-select">
-                            <option value="">Choose a price book...</option>
-                        </select>
+                        <label for="pricebook-select" class="form-label">Price Book</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-book"></i></span>
+                            <select id="pricebook-select" class="form-select">
+                                <option value="">Choose a price book...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Add Product Button -->
+                    <div class="mb-4">
+                        <button class="btn btn-outline-primary" id="add-product">
+                            <i class="bi bi-plus-lg me-2"></i>Add Product
+                        </button>
                     </div>
 
                     <!-- Products Table -->
@@ -61,6 +113,7 @@
                                     <th>Product</th>
                                     <th>Unit Price</th>
                                     <th>Quantity</th>
+                                    <th>Discount</th>
                                     <th>Total</th>
                                     <th>Actions</th>
                                 </tr>
@@ -70,17 +123,22 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                    <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
                                     <td id="subtotal">$0.00</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="3" class="text-end"><strong>Tax (8%):</strong></td>
-                                    <td id="tax">$0.00</td>
+                                    <td colspan="4" class="text-end"><strong>Discount:</strong></td>
+                                    <td id="total-discount">$0.00</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td colspan="4" class="text-end"><strong>Tax (8%):</strong></td>
+                                    <td id="tax">$0.00</td>
+                                    <td></td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td colspan="4" class="text-end"><strong>Total:</strong></td>
                                     <td id="total">$0.00</td>
                                     <td></td>
                                 </tr>
@@ -89,9 +147,72 @@
                     </div>
 
                     <!-- Actions -->
-                    <div class="text-end mt-4">
-                        <button id="save-quote" class="btn btn-success">Save Quote</button>
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <button id="preview-quote" class="btn btn-outline-primary">
+                            <i class="bi bi-eye me-2"></i>Preview Quote
+                        </button>
+                        <div>
+                            <button id="save-draft" class="btn btn-outline-secondary me-2">
+                                <i class="bi bi-save me-2"></i>Save Draft
+                            </button>
+                            <button id="save-quote" class="btn btn-success">
+                                <i class="bi bi-check-lg me-2"></i>Create Quote
+                            </button>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Product Modal -->
+    <div class="modal fade" id="add-product-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="product-search" placeholder="Search products...">
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="products-list">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>Code</th>
+                                    <th>List Price</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Products will be listed here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal fade" id="preview-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Quote Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Quote preview will be rendered here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="download-pdf">
+                        <i class="bi bi-download me-2"></i>Download PDF
+                    </button>
                 </div>
             </div>
         </div>
@@ -100,6 +221,8 @@
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <!-- App Scripts -->
-    <script type="module" src="/js/app.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 </html>

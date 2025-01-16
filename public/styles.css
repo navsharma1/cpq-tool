@@ -1,35 +1,116 @@
 /* General Styles */
+:root {
+    --primary-color: #1b96ff;
+    --secondary-color: #747474;
+    --success-color: #45b058;
+    --background-color: #f8f9fa;
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition-speed: 0.3s;
+}
+
 body {
-    background-color: #f8f9fa;
+    background-color: var(--background-color);
+    color: #2b2b2b;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .container {
     max-width: 1200px;
+    padding: 2rem;
 }
 
 /* Authentication Section */
 #auth-section {
-    margin-top: 100px;
+    margin: 100px auto;
+    text-align: center;
+    max-width: 600px;
+}
+
+#auth-section h1 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: var(--primary-color);
+}
+
+#login-button {
+    background-color: var(--primary-color);
+    border: none;
+    padding: 0.8rem 2rem;
+    font-size: 1.1rem;
+    transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+#login-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow);
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    transition: transform var(--transition-speed);
+    margin-bottom: 2rem;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+}
+
+.card-header {
+    background-color: white;
+    border-bottom: 1px solid #eee;
+    padding: 1.5rem;
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
 }
 
 /* Account Search */
+#account-search {
+    border-radius: 6px;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    transition: border-color var(--transition-speed);
+}
+
+#account-search:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(27, 150, 255, 0.1);
+}
+
 #account-results {
     max-height: 300px;
     overflow-y: auto;
+    margin-top: 1rem;
 }
 
-.account-item {
+.list-group-item {
+    border: none;
+    border-radius: 6px !important;
+    margin-bottom: 0.5rem;
+    transition: background-color var(--transition-speed);
     cursor: pointer;
-    transition: background-color 0.2s;
 }
 
-.account-item:hover {
-    background-color: #f8f9fa;
+.list-group-item:hover {
+    background-color: rgba(27, 150, 255, 0.1);
 }
 
 /* Quote Builder */
-#quote-builder {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+#selected-account {
+    background-color: rgba(27, 150, 255, 0.1);
+    border: none;
+    border-radius: 6px;
+    padding: 1rem;
 }
 
 /* Products Table */
@@ -37,17 +118,58 @@ body {
     margin-bottom: 0;
 }
 
+.table th {
+    border-top: none;
+    color: var(--secondary-color);
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
 .quantity-input {
     width: 80px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 6px;
+    padding: 0.8rem 1.5rem;
+    transition: all var(--transition-speed);
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    border: none;
+}
+
+.btn-success:hover {
+    background-color: #3d9d4d;
+    transform: translateY(-2px);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {
-        padding: 10px;
+        padding: 1rem;
+    }
+    
+    .card-header, .card-body {
+        padding: 1rem;
     }
     
     .table-responsive {
-        margin: 0 -15px;
+        margin: 0 -1rem;
+    }
+    
+    #auth-section h1 {
+        font-size: 2rem;
     }
 }
