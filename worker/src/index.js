@@ -142,7 +142,8 @@ async function getOAuthUrl(env) {
       hasUrl: !!result.url,
       hasCodeVerifier: !!result.codeVerifier,
       urlLength: result.url.length,
-      verifierLength: result.codeVerifier.length
+      verifierLength: result.codeVerifier.length,
+      fullResult: result // Log the full result object
     });
 
     return result;
@@ -246,30 +247,22 @@ async function handleRequest(request, env) {
     if (path === '/auth/url') {
       try {
         // Generate OAuth URL and code verifier
-        const { url, codeVerifier } = await getOAuthUrl(env);
-        console.log('Generated auth data:', {
-          hasUrl: !!url,
-          hasCodeVerifier: !!codeVerifier,
-          urlLength: url.length,
-          verifierLength: codeVerifier.length
-        });
+        const result = await getOAuthUrl(env);
+        console.log('getOAuthUrl result:', result); // Log the raw result
 
         // Create response object
         const responseData = {
-          url: url,
-          codeVerifier: codeVerifier
+          url: result.url,
+          codeVerifier: result.codeVerifier
         };
 
-        // Validate response data
-        if (!responseData.url || !responseData.codeVerifier) {
-          throw new Error('Missing required fields in response data');
-        }
+        console.log('Response data before stringify:', responseData); // Log the response data
 
         // Convert to JSON string
         const responseBody = JSON.stringify(responseData);
-        console.log('Response body:', responseBody);
+        console.log('Response body after stringify:', responseBody); // Log the stringified response
 
-        // Create and validate response
+        // Create response object
         const response = new Response(responseBody, {
           headers: {
             'Content-Type': 'application/json',
@@ -277,22 +270,16 @@ async function handleRequest(request, env) {
           },
         });
 
-        // Log response details
-        console.log('Response details:', {
+        // Log final response
+        console.log('Final response:', {
           status: response.status,
-          hasContentType: response.headers.has('Content-Type'),
-          hasCors: response.headers.has('Access-Control-Allow-Origin'),
-          bodySize: responseBody.length,
+          headers: Object.fromEntries(response.headers.entries()),
           body: responseBody
         });
 
         return response;
       } catch (error) {
-        console.error('Error generating auth URL:', {
-          error,
-          message: error.message,
-          stack: error.stack
-        });
+        console.error('Error in /auth/url:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           {
