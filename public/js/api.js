@@ -31,7 +31,7 @@ export class API {
             console.log('Response content type:', contentType);
             
             const responseText = await response.text();
-            console.log('Response text:', responseText);
+            console.log('Raw response text:', responseText);
             
             let data;
             try {
@@ -39,7 +39,7 @@ export class API {
                 console.log('Parsed response data:', data);
             } catch (e) {
                 console.error('Failed to parse response as JSON:', e);
-                throw new Error('Invalid JSON response from server');
+                throw new Error(`Invalid JSON response from server: ${responseText}`);
             }
             
             if (!response.ok) {
@@ -76,22 +76,34 @@ export class API {
 
     async getAuthUrl() {
         console.log('Getting auth URL...');
-        const response = await this.request('/auth/url');
-        console.log('Auth URL response:', response);
-        
-        if (!response) {
-            throw new Error('No response from server');
+        try {
+            const response = await this.request('/auth/url');
+            console.log('Auth URL raw response:', response);
+            
+            if (!response) {
+                throw new Error('No response from server');
+            }
+            
+            if (!response.url) {
+                throw new Error(`No URL in response: ${JSON.stringify(response)}`);
+            }
+            
+            if (!response.codeVerifier) {
+                throw new Error(`No code verifier in response: ${JSON.stringify(response)}`);
+            }
+            
+            console.log('Auth URL response validated:', {
+                hasUrl: !!response.url,
+                hasCodeVerifier: !!response.codeVerifier,
+                urlLength: response.url.length,
+                verifierLength: response.codeVerifier.length
+            });
+            
+            return response;
+        } catch (error) {
+            console.error('Failed to get auth URL:', error);
+            throw error;
         }
-        
-        if (!response.url) {
-            throw new Error('No URL in response');
-        }
-        
-        if (!response.codeVerifier) {
-            throw new Error('No code verifier in response');
-        }
-        
-        return response;
     }
 
     async handleCallback(code, codeVerifier) {

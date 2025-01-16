@@ -83,7 +83,9 @@ async function getOAuthUrl(env) {
     const { verifier, challenge } = await generatePKCE();
     console.log('Generated PKCE values:', {
       hasVerifier: !!verifier,
-      hasChallenge: !!challenge
+      hasChallenge: !!challenge,
+      verifierLength: verifier.length,
+      challengeLength: challenge.length
     });
 
     // Build OAuth URL
@@ -91,12 +93,11 @@ async function getOAuthUrl(env) {
       response_type: 'code',
       client_id: env.SF_CLIENT_ID,
       redirect_uri: env.REDIRECT_URI,
-      scope: 'api refresh_token',
+      scope: 'api refresh_token openid',
       state: crypto.randomUUID(),
       code_challenge: challenge,
       code_challenge_method: 'S256'
     });
-    console.log('Built URL parameters');
 
     const url = `${SF_AUTH_URL}?${params.toString()}`;
     console.log('Generated OAuth URL:', url);
@@ -106,10 +107,22 @@ async function getOAuthUrl(env) {
       url,
       codeVerifier: verifier
     };
+
+    // Validate response
+    if (!result.url) {
+      throw new Error('Failed to generate OAuth URL');
+    }
+    if (!result.codeVerifier) {
+      throw new Error('Failed to generate code verifier');
+    }
+
     console.log('OAuth URL generation successful:', {
       hasUrl: !!result.url,
-      hasCodeVerifier: !!result.codeVerifier
+      hasCodeVerifier: !!result.codeVerifier,
+      urlLength: result.url.length,
+      verifierLength: result.codeVerifier.length
     });
+
     return result;
   } catch (error) {
     console.error('OAuth URL generation failed:', error);
@@ -214,7 +227,9 @@ async function handleRequest(request, env) {
         const authData = await getOAuthUrl(env);
         console.log('Generated auth data:', {
           hasUrl: !!authData.url,
-          hasCodeVerifier: !!authData.codeVerifier
+          hasCodeVerifier: !!authData.codeVerifier,
+          urlLength: authData.url.length,
+          verifierLength: authData.codeVerifier.length
         });
 
         // Create response
@@ -228,7 +243,15 @@ async function handleRequest(request, env) {
             ...getCorsHeaders(request),
           },
         });
-        console.log('Created response object');
+
+        // Log response details
+        console.log('Response details:', {
+          status: response.status,
+          hasContentType: response.headers.has('Content-Type'),
+          hasCors: response.headers.has('Access-Control-Allow-Origin'),
+          bodySize: responseBody.length
+        });
+
         return response;
       } catch (error) {
         console.error('Error generating auth URL:', {
