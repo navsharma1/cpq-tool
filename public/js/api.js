@@ -86,30 +86,35 @@ export class API {
         console.log('Getting auth URL...');
         try {
             const response = await this.request('/auth/url');
-            console.log('Auth URL raw response:', response);
+            console.log('Raw auth response:', response);
 
             // Validate response
             if (!response || typeof response !== 'object') {
-                throw new Error(`Invalid response format: ${JSON.stringify(response)}`);
+                throw new Error('Invalid response format');
             }
 
+            // Validate URL
             if (!response.url || typeof response.url !== 'string') {
-                throw new Error(`No URL in response: ${JSON.stringify(response)}`);
+                throw new Error('Missing or invalid URL in response');
             }
 
+            // Validate code verifier
             if (!response.codeVerifier || typeof response.codeVerifier !== 'string') {
-                throw new Error(`No code verifier in response: ${JSON.stringify(response)}`);
+                throw new Error('Missing or invalid code verifier in response');
             }
 
-            // Log successful response
-            console.log('Auth URL response validated:', {
-                urlLength: response.url.length,
-                verifierLength: response.codeVerifier.length,
-                urlSample: response.url.substring(0, 50) + '...',
-                verifierSample: response.codeVerifier.substring(0, 10) + '...'
+            // Create a new object to ensure clean structure
+            const result = {
+                url: response.url,
+                codeVerifier: response.codeVerifier
+            };
+
+            console.log('Validated auth response:', {
+                hasUrl: !!result.url,
+                hasCodeVerifier: !!result.codeVerifier
             });
 
-            return response;
+            return result;
         } catch (error) {
             console.error('Failed to get auth URL:', error);
             throw error;

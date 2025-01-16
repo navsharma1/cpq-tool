@@ -103,24 +103,10 @@ async function generatePKCE() {
 // Get OAuth URL for Salesforce login
 async function getOAuthUrl(env) {
   try {
-    console.log('Starting OAuth URL generation...');
-
-    // Validate environment variables
-    if (!env.SF_CLIENT_ID) {
-      throw new Error('SF_CLIENT_ID is not configured');
-    }
-    if (!env.REDIRECT_URI) {
-      throw new Error('REDIRECT_URI is not configured');
-    }
-
     // Generate PKCE values
     const { verifier, challenge } = await generatePKCE();
-    console.log('PKCE values:', {
-      verifierLength: verifier.length,
-      challengeLength: challenge.length
-    });
-
-    // Build OAuth URL params
+    
+    // Build OAuth URL
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: env.SF_CLIENT_ID,
@@ -131,29 +117,13 @@ async function getOAuthUrl(env) {
       code_challenge_method: 'S256'
     });
 
-    // Build full URL
     const authUrl = `${SF_AUTH_URL}?${params.toString()}`;
-
-    // Create and validate result
-    const result = {
+    
+    // Return both URL and code verifier
+    return {
       url: authUrl,
       codeVerifier: verifier
     };
-
-    // Validate result
-    if (!result.url || typeof result.url !== 'string') {
-      throw new Error('Invalid URL generated');
-    }
-    if (!result.codeVerifier || typeof result.codeVerifier !== 'string') {
-      throw new Error('Invalid code verifier generated');
-    }
-
-    console.log('OAuth URL generated:', {
-      urlLength: result.url.length,
-      verifierLength: result.codeVerifier.length
-    });
-
-    return result;
   } catch (error) {
     console.error('OAuth URL generation failed:', error);
     throw error;
@@ -255,23 +225,10 @@ async function handleRequest(request, env) {
       try {
         // Generate OAuth URL and code verifier
         const result = await getOAuthUrl(env);
-        
-        // Create response object
-        const responseData = {
-          url: result.url,
-          codeVerifier: result.codeVerifier
-        };
-
-        // Validate response data
-        if (!responseData.url || typeof responseData.url !== 'string') {
-          throw new Error('Missing URL in response data');
-        }
-        if (!responseData.codeVerifier || typeof responseData.codeVerifier !== 'string') {
-          throw new Error('Missing code verifier in response data');
-        }
+        console.log('Generated auth data:', result);
 
         // Create response
-        const response = new Response(JSON.stringify(responseData), {
+        const response = new Response(JSON.stringify(result), {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
@@ -285,18 +242,13 @@ async function handleRequest(request, env) {
         // Verify response
         const clone = response.clone();
         const responseText = await clone.text();
-        console.log('Response verification:', {
-          status: response.status,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseText
-        });
+        console.log('Final response:', responseText);
 
         return response;
       } catch (error) {
-        console.error('Error generating auth URL:', error);
+        console.error('Error:', error);
         return new Response(JSON.stringify({
-          error: error.message,
-          stack: error.stack
+          error: error.message
         }), {
           status: 500,
           headers: {
