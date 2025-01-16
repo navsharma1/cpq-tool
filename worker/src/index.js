@@ -41,40 +41,58 @@ function generateRandomString(length) {
 async function generatePKCE() {
   try {
     console.log('Starting PKCE generation...');
-    
+
+    // Generate code verifier
     const verifier = generateRandomString(128);
-    console.log('Generated verifier:', {
+    console.log('Code verifier:', {
       length: verifier.length,
       sample: verifier.substring(0, 10) + '...'
     });
-    
+
+    // Encode verifier
     const encoder = new TextEncoder();
     const data = encoder.encode(verifier);
     console.log('Encoded verifier:', {
       length: data.length,
       type: data.constructor.name
     });
-    
+
+    // Generate SHA-256 hash
     const digest = await crypto.subtle.digest('SHA-256', data);
-    console.log('Generated digest:', {
+    console.log('SHA-256 digest:', {
       length: digest.byteLength,
       type: digest.constructor.name
     });
-    
+
+    // Base64URL encode the hash
     const challenge = base64URLEncode(digest);
-    console.log('Generated challenge:', {
+    console.log('Code challenge:', {
       length: challenge.length,
       sample: challenge.substring(0, 10) + '...'
     });
-    
-    const result = { verifier, challenge };
+
+    // Create and validate result
+    const result = {
+      verifier: verifier,
+      challenge: challenge
+    };
+
+    // Validate result
+    if (!result.verifier || typeof result.verifier !== 'string' || result.verifier.length !== 128) {
+      throw new Error('Invalid code verifier generated');
+    }
+
+    if (!result.challenge || typeof result.challenge !== 'string' || result.challenge.length < 43) {
+      throw new Error('Invalid code challenge generated');
+    }
+
     console.log('PKCE generation successful:', {
       verifierLength: result.verifier.length,
       challengeLength: result.challenge.length,
       verifierSample: result.verifier.substring(0, 10) + '...',
       challengeSample: result.challenge.substring(0, 10) + '...'
     });
-    
+
     return result;
   } catch (error) {
     console.error('PKCE generation failed:', error);
@@ -248,48 +266,62 @@ async function handleRequest(request, env) {
       try {
         // Generate OAuth URL and code verifier
         const result = await getOAuthUrl(env);
-        console.log('getOAuthUrl result:', result); // Log the raw result
+        console.log('getOAuthUrl raw result:', result);
 
-        // Create response object
+        // Ensure result is an object with required fields
+        if (!result || typeof result !== 'object') {
+          throw new Error('Invalid result from getOAuthUrl');
+        }
+
+        if (!result.url || typeof result.url !== 'string') {
+          throw new Error('Missing or invalid url in result');
+        }
+
+        if (!result.codeVerifier || typeof result.codeVerifier !== 'string') {
+          throw new Error('Missing or invalid codeVerifier in result');
+        }
+
+        // Create response data object
         const responseData = {
           url: result.url,
           codeVerifier: result.codeVerifier
         };
 
-        console.log('Response data before stringify:', responseData); // Log the response data
+        console.log('Response data:', JSON.stringify(responseData, null, 2));
 
-        // Convert to JSON string
-        const responseBody = JSON.stringify(responseData);
-        console.log('Response body after stringify:', responseBody); // Log the stringified response
-
-        // Create response object
-        const response = new Response(responseBody, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getCorsHeaders(request),
-          },
+        // Create response with explicit headers
+        const headers = new Headers({
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
         });
 
-        // Log final response
-        console.log('Final response:', {
-          status: response.status,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseBody
+        // Create response with validated data
+        const response = new Response(JSON.stringify(responseData), {
+          status: 200,
+          headers
         });
 
+        // Verify response is correct
+        const clone = response.clone();
+        const responseText = await clone.text();
+        console.log('Final response text:', responseText);
+        
         return response;
       } catch (error) {
         console.error('Error in /auth/url:', error);
-        return new Response(
-          JSON.stringify({ error: error.message }),
-          {
-            status: 500,
-            headers: {
-              'Content-Type': 'application/json',
-              ...getCorsHeaders(request),
-            },
+        const errorResponse = {
+          error: error.message,
+          stack: error.stack
+        };
+        return new Response(JSON.stringify(errorResponse), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
           }
-        );
+        });
       }
     }
 
